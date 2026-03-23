@@ -19,6 +19,7 @@ This file contains an instance of an abstract DP system associated to the discre
 namespace SLang
 
 variable { T : Type }
+variable [MeasurableSpace T] [MeasurableSingletonClass T]
 
 /--
 Instance of a DP system for zCDP, using the discrete Gaussian as a noising mechanism.

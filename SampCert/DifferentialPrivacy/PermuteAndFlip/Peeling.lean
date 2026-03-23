@@ -32,7 +32,7 @@ namespace RangePrivate
 @[simp] theorem const {n : CandidateCount} (α : ENNReal) (u : U) :
     RangePrivate α 0 (fun _ : Scores n => SLang.probPure u) := by
   intro q q' x
-  simp [RangePrivate, SLang.probPure]
+  simp [SLang.probPure]
 
 theorem const_of_le_one {n : CandidateCount} {α : ENNReal} {steps : ℕ}
     (hα : α ≤ 1) (u : U) :
@@ -248,7 +248,7 @@ theorem peelPermuteAndFlipSLangAux_range_private {n : CandidateCount} :
     intro ε₁ ε₂
     intro q q' ys
     by_cases hys : ys = [] <;>
-      simp [RangePrivate, peelPermuteAndFlipSLangAux, SLang.probPure, hys]
+      simp [peelPermuteAndFlipSLangAux, SLang.probPure, hys]
   | succ k ih =>
       intro ε₁ ε₂
       cases l with

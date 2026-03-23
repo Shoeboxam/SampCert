@@ -5,6 +5,7 @@ Authors: Jean-Baptiste Tristan
 -/
 import SampCert.DifferentialPrivacy.Queries.BoundedMean.Basic
 import SampCert.DifferentialPrivacy.Queries.Histogram.Basic
+import SampCert.DifferentialPrivacy.PermuteAndFlip.Basic
 import SampCert.DifferentialPrivacy.ZeroConcentrated.System
 import SampCert.DifferentialPrivacy.Pure.System
 import SampCert.DifferentialPrivacy.Queries.HistogramMean.Properties
@@ -53,11 +54,9 @@ opaque DirtyIOGet(x : IO ℤ) : UInt32
 lemma UInt32.toNa_of_non_zero {n : UInt32} (h : n ≠ 0) :
   0 < n.toNat := by
   have A : n.toNat ≠ 0 := by
-    rw [← UInt32.zero_toNat]
-    by_contra
-    rename_i h'
-    have B := UInt32.toNat.inj h'
-    contradiction
+    intro h'
+    apply h
+    exact UInt32.toNat.inj (by simpa using h')
   exact Nat.zero_lt_of_ne_zero A
 
 @[export dgs_get]

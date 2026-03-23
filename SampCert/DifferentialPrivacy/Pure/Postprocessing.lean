@@ -30,7 +30,7 @@ lemma privPostProcess_DP_bound {nq : Mechanism T U} {ε : NNReal} (h : PureDP nq
   simp [privPostProcess]
   apply ENNReal.div_le_of_le_mul
   rw [← ENNReal.tsum_mul_left]
-  apply tsum_le_tsum _ ENNReal.summable (by aesop)
+  apply ENNReal.tsum_le_tsum
   intro i
   split
   · rename_i h

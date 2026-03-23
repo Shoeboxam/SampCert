@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Jean-Baptiste Tristan
 -/
 import SampCert.Util.Gaussian.DiscreteGaussian
+import Mathlib.LinearAlgebra.Complex.FiniteDimensional
 
 /-!
 # Gauss Bound
@@ -23,9 +24,9 @@ open Classical Nat BigOperators Real
 open FourierTransform GaussianFourier Filter Asymptotics Complex
 open ContinuousMap Function
 
-attribute [local instance] Real.fact_zero_lt_one
+local instance : FiniteDimensional ℝ ℂ := Complex.basisOneI.finiteDimensional_of_finite
 
-/-
+/--
 This is copied from MathLib; it was made private in the release of 4.10 with the suggestion that it would be
 auto-generated in 4.11. It wasn't clear if it would become public again at that point.
 
@@ -39,125 +40,149 @@ The sum of any gaussian function over ℤ is bounded above by the sum of the mea
 -/
 theorem sum_gauss_term_bound {σ : ℝ} (h : σ ≠ 0) (μ : ℝ) :
   (∑' (n : ℤ), ((gauss_term_ℝ σ μ) n)) ≤ ∑' (n : ℤ), ((gauss_term_ℝ σ 0) n) := by
+  let g : ℝ → ℂ := fun x => (𝓕 (⇑(gauss_term_ℂ σ 0))) x
+
   have A : (∑' (n : ℤ), (gauss_term_ℝ σ μ) n) = (∑' (n : ℤ), (gauss_term_ℝ σ 0) ((- μ) + n)) := by
-    apply tsum_congr
-    intro b
-    simp [gauss_term_ℝ]
-    congr
-    rw [neg_add_eq_sub]
+    refine tsum_congr ?_
+    intro n
+    simp [gauss_term_ℝ, sub_eq_add_neg, add_comm]
 
-  have B : (∑' (n : ℤ), (gauss_term_ℝ σ 0) (-μ + ↑n)) = |∑' (n : ℤ), (gauss_term_ℝ σ 0) (-μ + ↑n)| := by
+  have Sshift : Summable fun n : ℤ => gauss_term_ℝ σ 0 (-μ + n) := by
+    refine Summable.congr (summable_gauss_term' h μ) ?_
+    intro n
+    simp [gauss_term_ℝ, sub_eq_add_neg, add_comm]
+
+  have B : (∑' (n : ℤ), (gauss_term_ℝ σ 0) (-μ + n)) = |∑' (n : ℤ), (gauss_term_ℝ σ 0) (-μ + n)| := by
     rw [_root_.abs_of_nonneg]
-    apply tsum_nonneg
+    have hμ : 0 ≤ ∑' (n : ℤ), (gauss_term_ℝ σ μ) n := sum_gauss_term_nonneg h μ
+    rwa [A] at hμ
+
+  have C : |∑' (n : ℤ), (gauss_term_ℝ σ 0) (-μ + n)| =
+      ‖∑' (n : ℤ), (((gauss_term_ℝ σ 0) (-μ + n)) : ℂ)‖ := by
+    calc
+      |∑' (n : ℤ), (gauss_term_ℝ σ 0) (-μ + n)| =
+          ‖((((∑' (n : ℤ), (gauss_term_ℝ σ 0) (-μ + n)) : ℝ)) : ℂ)‖ := by
+            simp
+      _ = ‖∑' (n : ℤ), (((gauss_term_ℝ σ 0) (-μ + n)) : ℂ)‖ := by
+            simpa using congrArg norm
+              (Complex.ofReal_tsum (fun n : ℤ => (gauss_term_ℝ σ 0) (-μ + n)))
+
+  have Pmu : (∑' (n : ℤ), (((gauss_term_ℝ σ 0) (-μ + n)) : ℂ)) =
+      ∑' (n : ℤ), g n * (_root_.fourier n) (-μ : UnitAddCircle) := by
+    calc
+      (∑' (n : ℤ), (((gauss_term_ℝ σ 0) (-μ + n)) : ℂ)) =
+          ∑' (n : ℤ), gauss_term_ℂ σ 0 (-μ + n) := by
+            exact tsum_congr (fun n : ℤ => (gauss_term_swap σ 0 (-μ + n)).symm)
+      _ = ∑' (n : ℤ), g n * (_root_.fourier n) (-μ : UnitAddCircle) := by
+            simpa [g] using (poisson_gauss_term h (-μ))
+
+  have E : ‖∑' (n : ℤ), (((gauss_term_ℝ σ 0) (-μ + n)) : ℂ)‖ =
+      ‖∑' (n : ℤ), g n * (_root_.fourier n) (-μ : UnitAddCircle)‖ := by
+    exact congrArg norm Pmu
+
+  have F : (∑' (i : ℤ), ‖g i * ((_root_.fourier i) (-μ : UnitAddCircle))‖) =
+      ∑' (i : ℤ), ‖g i‖ := by
+    refine tsum_congr ?_
     intro i
-    simp [gauss_term_ℝ, exp_nonneg]
+    rw [norm_mul]
+    have X : ‖(_root_.fourier i) (-μ : UnitAddCircle)‖ = 1 := by
+      rw [fourier_apply]
+      exact Circle.norm_coe _
+    rw [X, mul_one]
 
-  have C : |∑' (n : ℤ), (gauss_term_ℝ σ 0) (-μ + ↑n)| = Complex.abs (∑' (n : ℤ), (gauss_term_ℝ σ 0) (-μ + ↑n)) := by
-    rw [← abs_ofReal]
-    congr
-    rw [ofReal_tsum]
+  let x : ℝ := (π * σ ^ 2 * 2)⁻¹
+  have hx_nonneg : 0 ≤ x := by
+    dsimp [x]
+    positivity
+  have hx_pos : 0 < x := by
+    dsimp [x]
+    positivity
 
-  have D : Complex.abs (∑' (n : ℤ), (gauss_term_ℝ σ 0) (-μ + ↑n)) = Complex.abs (∑' (n : ℤ), (gauss_term_ℝ σ 0) (-μ + ↑n)) := by
-    congr
+  have cpow_half_ofReal :
+      (((x : ℝ) : ℂ) ^ ((2 : ℂ)⁻¹)) = (((x ^ ((2 : ℝ)⁻¹)) : ℝ) : ℂ) := by
+    symm
+    simpa using (Complex.ofReal_cpow hx_nonneg ((2 : ℝ)⁻¹))
 
-  have E : Complex.abs (∑' (n : ℤ), (gauss_term_ℝ σ 0) (-μ + ↑n)) = Complex.abs (∑' (n : ℤ), 𝓕 (gauss_term_ℂ σ 0) n * (fourier n) (-μ : UnitAddCircle)) := by
-    have X := poisson_gauss_term h (-μ)
-    congr 1
+  have Sg : Summable fun i : ℤ => g i := by
+    simpa [g] using (summable_fourier_gauss_term h)
 
-  have F : (∑' (i : ℤ), Complex.abs (𝓕 (gauss_term_ℂ σ 0) i) * Complex.abs ((@fourier 1 i) (-μ))) = ∑' (i : ℤ), Complex.abs (𝓕 (gauss_term_ℂ σ 0) i) := by
-    have X : ∀ i, ∀ x : AddCircle 1, ‖fourier i x‖ = 1 := fun i => fun x => abs_coe_circle _
-    conv =>
-      left
-      right
-      intro i
-      right
-      rw [← Complex.norm_eq_abs]
-      rw [X i]
-    simp
+  have g_eq_ofReal : ∀ a : ℤ, g a =
+      (((Real.exp (-2 * (π * σ * (a : ℝ)) ^ 2) / (x ^ ((2 : ℝ)⁻¹))) : ℝ) : ℂ) := by
+    intro a
+    have hg : g a = fourier_gauss_term σ (a : ℝ) := by
+      dsimp [g]
+      simpa using (congrFun (fourier_gauss_term_correspondance h) (a : ℝ))
+    have hbase : (((((↑π * ↑σ ^ 2 * 2 : ℂ)⁻¹)) ^ ((2 : ℂ)⁻¹))) = (((x ^ ((2 : ℝ)⁻¹)) : ℝ) : ℂ) := by
+      rw [show ((↑π * ↑σ ^ 2 * 2 : ℂ)⁻¹) = ((x : ℝ) : ℂ) by simp [x]]
+      exact cpow_half_ofReal
+    have hexp : (-2 * (↑π * ↑σ * (a : ℝ)) ^ 2 : ℂ) = (((-2 * (π * σ * (a : ℝ)) ^ 2 : ℝ)) : ℂ) := by
+      push_cast
+      ring
+    calc
+      g a = fourier_gauss_term σ (a : ℝ) := hg
+      _ = (((Real.exp (-2 * (π * σ * (a : ℝ)) ^ 2) / (x ^ ((2 : ℝ)⁻¹))) : ℝ) : ℂ) := by
+        rw [fourier_gauss_term, hbase, hexp, ← Complex.ofReal_exp, ← Complex.ofReal_div]
 
-  have G : (∑' (i : ℤ), Complex.abs (𝓕 (gauss_term_ℂ σ 0) i)) = ∑' (i : ℤ), 𝓕 (gauss_term_ℂ σ 0) i := by
-    rw [ofReal_tsum]
-    congr
-    ext a
-    rw [fourier_gauss_term_correspondance h]
-    unfold fourier_gauss_term
-    simp [sq]
-    congr 1
-    · rw [Complex.abs_exp]
-      simp [sq]
-    · have A : 0 ≤ (2⁻¹ * ((↑σ)⁻¹ * (↑σ)⁻¹ * (↑π)⁻¹)) ^ (2 : ℝ)⁻¹ := by
-        apply rpow_nonneg
-        rw [mul_nonneg_iff]
-        left
-        simp [pi_pos]
-        rw [← pow_two]
-        rw [inv_pow]
-        rw [inv_nonneg]
-        exact sq_nonneg σ
-      have H := Complex.abs_of_nonneg A
-      have X : ofReal' ((2⁻¹ * ((↑σ)⁻¹ * (↑σ)⁻¹ * (↑π)⁻¹)) ^ (2 : ℝ)⁻¹) = (2⁻¹ * ((σ : ℂ)⁻¹ * (σ : ℂ)⁻¹ * (π : ℂ)⁻¹)) ^ (2 : ℂ)⁻¹ := by
-        rw [← ofReal_ofNat]
-        rw [← Complex.ofReal_inv]
-        rw [← Complex.ofReal_inv]
-        rw [← Complex.ofReal_inv]
-        rw [← Complex.ofReal_mul]
-        rw [← Complex.ofReal_mul]
-        rw [← Complex.ofReal_mul]
-        rw [local_ext_iff]
-        constructor
-        · rw [rpow_def]
-          simp
-        · simp
-          rw [cpow_inv_two_im_eq_sqrt]
-          · simp
-            ring_nf
-            simp
-            rw [← Real.sqrt_zero]
-            congr 1
-            have P1 : |π| = π := by
-              rw [_root_.abs_of_nonneg]
-              rw [le_iff_lt_or_eq]
-              left
-              apply pi_pos
-            rw [P1]
-            rw [← mul_add]
-            simp
-            right
-            ring_nf
-          · simp
-      rw [← X]
-      rw [H]
+  have g_nonneg : ∀ a : ℤ,
+      0 ≤ Real.exp (-2 * (π * σ * (a : ℝ)) ^ 2) / (x ^ ((2 : ℝ)⁻¹)) := by
+    intro a
+    exact div_nonneg (le_of_lt (Real.exp_pos _)) (le_of_lt (Real.rpow_pos_of_pos hx_pos _))
 
-  have H : (∑' (n : ℤ), 𝓕 (gauss_term_ℂ σ 0) n) = ∑' (n : ℤ), (gauss_term_ℂ σ 0) n := by
-    have X := poisson_gauss_term h 0
-    revert X
-    conv =>
-      left
-      right
-      right
-      intro n
-      right
-      rw [QuotientAddGroup.mk_zero]
-      rw [fourier_eval_zero n]
-    intro X
-    simp at X
-    simp [X]
+  have g_norm : ∀ a : ℤ, (((‖g a‖ : ℝ) : ℂ)) = g a := by
+    intro a
+    let y : ℝ := Real.exp (-2 * (π * σ * (a : ℝ)) ^ 2) / (x ^ ((2 : ℝ)⁻¹))
+    have hy : 0 ≤ y := by
+      dsimp [y]
+      exact g_nonneg a
+    rw [g_eq_ofReal a]
+    change (((‖((y : ℝ) : ℂ)‖ : ℝ) : ℂ)) = ((y : ℝ) : ℂ)
+    simp [Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg hy]
 
-  have I : (∑' (n : ℤ), (gauss_term_ℂ σ 0) n) = ∑' (n : ℤ), (gauss_term_ℝ σ 0) n := by
-    rw [ofReal_tsum]
-    congr
+  have G : (((∑' (i : ℤ), ‖g i‖) : ℝ) : ℂ) = ∑' (i : ℤ), g i := by
+    calc
+      (((∑' (i : ℤ), ‖g i‖) : ℝ) : ℂ) = ∑' (i : ℤ), (((‖g i‖ : ℝ) : ℂ)) := by
+        exact Complex.ofReal_tsum (fun i : ℤ => ‖g i‖)
+      _ = ∑' (i : ℤ), g i := by
+        exact tsum_congr g_norm
 
-  have J : Complex.abs (∑' (i : ℤ), 𝓕 (gauss_term_ℂ σ 0) i * (@fourier 1 i) (-μ)) ≤ ∑' (i : ℤ), Complex.abs (𝓕 (gauss_term_ℂ σ 0) i) * Complex.abs ((@fourier 1 i) (-μ)) := by
-    rw [← Complex.norm_eq_abs]
-    have S := summable_fourier_gauss_term' h μ
-    rw [← summable_norm_iff] at S
-    have Y := @norm_tsum_le_tsum_norm _ _ _ (fun (n : ℤ) => 𝓕 (gauss_term_ℂ σ 0) n * (@fourier 1 n) (-μ)) S
-    simp only [smul_neg,  ofReal_one, div_one, Complex.norm_eq_abs, norm_mul] at Y
-    apply Y
+  have P0 : (∑' (n : ℤ), gauss_term_ℂ σ 0 (0 + n)) =
+      ∑' (n : ℤ), g n * (_root_.fourier n) (0 : UnitAddCircle) := by
+    simpa [g] using (poisson_gauss_term h 0)
 
-  rw [A, B, C, D, E]
-  rw [F] at J
-  apply le_trans J
-  refine real_le_real.mp ?_
-  rw [G, H, I]
-  simp only [real_le_real, le_refl]
+  have H : (∑' (n : ℤ), g n) = ∑' (n : ℤ), (gauss_term_ℂ σ 0) n := by
+    simpa [fourier_eval_zero] using P0.symm
+
+  have I : (∑' (n : ℤ), (gauss_term_ℂ σ 0) n) = (((∑' (n : ℤ), (gauss_term_ℝ σ 0) n) : ℝ) : ℂ) := by
+    calc
+      (∑' (n : ℤ), (gauss_term_ℂ σ 0) n) = ∑' (n : ℤ), (((gauss_term_ℝ σ 0 n) : ℝ) : ℂ) := by
+        exact tsum_congr (fun n : ℤ => gauss_term_swap σ 0 n)
+      _ = (((∑' (n : ℤ), (gauss_term_ℝ σ 0) n) : ℝ) : ℂ) := by
+        symm
+        exact Complex.ofReal_tsum (fun n : ℤ => gauss_term_ℝ σ 0 n)
+
+  have GI : (∑' (i : ℤ), ‖g i‖) = ∑' (n : ℤ), (gauss_term_ℝ σ 0) n := by
+    have X : (((∑' (i : ℤ), ‖g i‖) : ℝ) : ℂ) = (((∑' (n : ℤ), (gauss_term_ℝ σ 0) n) : ℝ) : ℂ) := by
+      calc
+        (((∑' (i : ℤ), ‖g i‖) : ℝ) : ℂ) = ∑' (i : ℤ), g i := G
+        _ = ∑' (n : ℤ), (gauss_term_ℂ σ 0) n := H
+        _ = (((∑' (n : ℤ), (gauss_term_ℝ σ 0) n) : ℝ) : ℂ) := I
+    simpa using congrArg Complex.re X
+
+  have S : Summable fun (n : ℤ) => g n * (_root_.fourier n) (-μ : UnitAddCircle) := by
+    simpa [g] using (summable_fourier_gauss_term' h μ)
+
+  have J : ‖∑' (i : ℤ), g i * (_root_.fourier i) (-μ : UnitAddCircle)‖ ≤
+      ∑' (i : ℤ), ‖g i * (_root_.fourier i) (-μ : UnitAddCircle)‖ := by
+    simpa using
+      (norm_tsum_le_tsum_norm (f := fun i : ℤ => g i * (_root_.fourier i) (-μ : UnitAddCircle)) S.norm)
+
+  calc
+    (∑' (n : ℤ), ((gauss_term_ℝ σ μ) n))
+        = |∑' (n : ℤ), (gauss_term_ℝ σ 0) (-μ + n)| := by
+          rw [A]
+          exact B
+    _ = ‖∑' (n : ℤ), (((gauss_term_ℝ σ 0) (-μ + n)) : ℂ)‖ := C
+    _ = ‖∑' (n : ℤ), g n * (_root_.fourier n) (-μ : UnitAddCircle)‖ := E
+    _ ≤ ∑' (i : ℤ), ‖g i * (_root_.fourier i) (-μ : UnitAddCircle)‖ := J
+    _ = ∑' (i : ℤ), ‖g i‖ := F
+    _ = ∑' (n : ℤ), ((gauss_term_ℝ σ 0) n) := GI

@@ -5,8 +5,8 @@ Authors: Jean-Baptiste Tristan
 -/
 
 import Mathlib.Algebra.Group.Defs
-import Mathlib.Init.Algebra.Classes
 import Init.Data.Int.Order
+import Mathlib.Data.Int.Lemmas
 import SampCert.DifferentialPrivacy.Queries.BoundedSum.Code
 
 /-!
@@ -20,8 +20,6 @@ open Classical Nat Int Real
 noncomputable section
 
 namespace SLang
-
-variable [dps : DPSystem ℕ]
 
 /--
 Sensitivity of the bounded sum is equal to the bound.
@@ -65,17 +63,17 @@ theorem exactBoundedSum_sensitivity (U : ℕ+) : sensitivity (exactBoundedSum U)
       · rename_i h'
         rw [h, h']
         simp at *
-        apply Int.natAbs_coe_sub_coe_le_of_le h h'
+        apply natAbs_coe_sub_coe_le_of_le h h'
       · rename_i h'
         rw [h, h']
         simp at *
-        apply Int.natAbs_coe_sub_coe_le_of_le h le_rfl
+        apply natAbs_coe_sub_coe_le_of_le h le_rfl
     · rename_i h
       cases A m
       · rename_i h'
         rw [h, h']
         simp at *
-        apply Int.natAbs_coe_sub_coe_le_of_le le_rfl h'
+        apply natAbs_coe_sub_coe_le_of_le le_rfl h'
       · rename_i h'
         rw [h, h']
         simp at *
@@ -84,7 +82,7 @@ theorem exactBoundedSum_sensitivity (U : ℕ+) : sensitivity (exactBoundedSum U)
 The noised bounded sum satisfies the DP property of the DP system.
 -/
 @[simp]
-theorem privNoisedBoundedSum_DP (U : ℕ+) (ε₁ ε₂ : ℕ+) :
+theorem privNoisedBoundedSum_DP [dps : DPSystem ℕ] (U : ℕ+) (ε₁ ε₂ : ℕ+) :
   dps.prop (privNoisedBoundedSum U ε₁ ε₂) ((ε₁ : NNReal) / ε₂) := by
   apply dps.noise_prop
   apply exactBoundedSum_sensitivity

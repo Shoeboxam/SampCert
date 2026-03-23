@@ -42,12 +42,7 @@ theorem DiscreteGaussianGenSample_apply (num : PNat) (den : PNat) (μ x : ℤ) :
   simp [DiscreteGaussianGenSample, discrete_gaussian]
   rw [ENNReal.tsum_eq_add_tsum_ite (x - μ)]
   simp
-  conv =>
-    left
-    right
-    right
-    intro y
-    rw [if_simple_GaussianGen]
+  simp_rw [if_simple_GaussianGen]
   simp only [tsum_zero, add_zero]
   congr 2
   · simp [gauss_term_ℝ]
@@ -58,11 +53,7 @@ DiscreteGaussianGen has sum 1
 -/
 theorem DiscreteGaussianGen_sum (num : PNat) (den : PNat) (μ : ℤ) : HasSum (DiscreteGaussianGenSample num den μ) 1 := by
   rw [Summable.hasSum_iff ENNReal.summable]
-  conv =>
-    lhs
-    arg 1
-    intro b
-    rw [DiscreteGaussianGenSample_apply]
+  simp_rw [DiscreteGaussianGenSample_apply]
 
   have Hnz : (num / den : ℝ) ≠ 0 := by simp
   have Hcoe : (OfNat.ofNat 1 = ENNReal.ofReal (OfNat.ofNat 1)) := by simp
@@ -79,7 +70,6 @@ DiscreteGaussianGen as a PMF
 -/
 def DiscreteGaussianGenPMF (num : PNat) (den : PNat) (μ : ℤ) : PMF ℤ :=
   ⟨ DiscreteGaussianGenSample num den μ , DiscreteGaussianGen_sum num den μ ⟩
-
 
 
 

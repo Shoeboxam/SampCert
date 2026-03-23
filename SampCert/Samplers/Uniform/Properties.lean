@@ -31,22 +31,17 @@ namespace SLang
 theorem rw1 (n : PNat) :
   ((2 ^ log 2 ((2 : PNat) * ↑n))⁻¹ * ((2 ^ log 2 ((2 : PNat) * ↑n))⁻¹ * ↑↑n)⁻¹ : ENNReal)
    = ((2 ^ log 2 ((2 : PNat) * ↑n))⁻¹ * ((2 ^ log 2 ((2 : PNat) * ↑n))⁻¹ * ↑↑n)⁻¹ : NNReal) := by
-  simp only [PNat.val_ofNat, reduceSucc, mul_inv_rev, inv_inv, ENNReal.coe_mul, ne_eq,
-    pow_eq_zero_iff', OfNat.ofNat_ne_zero, log_eq_zero_iff, gt_iff_lt, ofNat_pos,
-    mul_lt_iff_lt_one_right, lt_one_iff, PNat.ne_zero, not_ofNat_le_one, or_self, not_false_eq_true,
-    and_true, ENNReal.coe_inv, ENNReal.coe_pow, coe_ofNat, cast_eq_zero, coe_natCast]
-  congr
-  rw [mul_comm]
-  rw [ENNReal.mul_inv]
-  · simp only [inv_inv]
-  · simp only [ne_eq, cast_eq_zero, PNat.ne_zero, not_false_eq_true, inv_eq_top, log_eq_zero_iff,
-    gt_iff_lt, ofNat_pos, mul_lt_iff_lt_one_right, lt_one_iff, not_ofNat_le_one, or_self,
-    pow_eq_zero_iff, OfNat.ofNat_ne_zero]
-  · simp only [ne_eq, natCast_ne_top, not_false_eq_true, ENNReal.inv_eq_zero, pow_eq_top_iff,
-    two_ne_top, log_eq_zero_iff, gt_iff_lt, ofNat_pos, mul_lt_iff_lt_one_right, lt_one_iff,
-    PNat.ne_zero, not_ofNat_le_one, or_self, and_true]
+  let a : ENNReal := (2 ^ log 2 ((2 : PNat) * ↑n))⁻¹ * ((2 ^ log 2 ((2 : PNat) * ↑n))⁻¹ * ↑↑n)⁻¹
+  have ha : a ≠ ∞ := by
+    dsimp [a]
+    exact ENNReal.mul_ne_top (by simp) (by simp)
+  simp
 
 theorem rw2 (n : PNat) : ((↑↑n)⁻¹ : ENNReal) = ((↑↑n)⁻¹ : NNReal) := by
+  let a : ENNReal := (↑↑n)⁻¹
+  have ha : a ≠ ∞ := by
+    dsimp [a]
+    simp
   simp
 
 /--
@@ -101,27 +96,24 @@ lemma uniformPowerOfTwoSample_autopilot (n : PNat) :
   have X : (∑' (i : ℕ), if decide (↑n ≤ i) = true then UniformPowerOfTwoSample (2 * n) i else 0) +
     (∑' (i : ℕ), if decide (↑n ≤ i) = false then UniformPowerOfTwoSample (2 * n) i else 0) = 1 := by
     have A := UniformPowerOfTwoSample_normalizes (2 * n)
-    have B := @tsum_add_tsum_compl ENNReal ℕ _ _ (fun i => UniformPowerOfTwoSample (2 * n) i) _ _ { i : ℕ | decide (↑n ≤ i) = true} ENNReal.summable ENNReal.summable
-    rw [A] at B
-    clear A
-    have C := @tsum_split_coe_right _ (fun i => ↑n ≤ i) (fun i => UniformPowerOfTwoSample (2 * n) i)
-    rw [C] at B
-    clear C
-    have D := @tsum_split_coe_left _ (fun i => ↑n ≤ i) (fun i => UniformPowerOfTwoSample (2 * n) i)
-    rw [tsum_comp n] at B
-    rw [D] at B
-    clear D
-    trivial
+    have B := tsum_split_ite' (fun i => decide (↑n ≤ i)) (fun i => UniformPowerOfTwoSample (2 * n) i)
+      (fun i => UniformPowerOfTwoSample (2 * n) i)
+    rw [tsum_split_coe_right, tsum_split_coe_left] at B
+    calc
+      (∑' (i : ℕ), if decide (↑n ≤ i) = true then UniformPowerOfTwoSample (2 * n) i else 0) +
+          (∑' (i : ℕ), if decide (↑n ≤ i) = false then UniformPowerOfTwoSample (2 * n) i else 0)
+        = ∑' (i : ℕ), UniformPowerOfTwoSample (2 * n) i := by
+            simpa [add_comm, add_left_comm, add_assoc] using B.symm
+      _ = 1 := A
   apply ENNReal.sub_eq_of_eq_add_rev
   · have Y := tsum_split_less (fun i => ↑n ≤ i) (fun i => UniformPowerOfTwoSample (2 * n) i)
     rw [UniformPowerOfTwoSample_normalizes (2 * n)] at Y
     simp at Y
     clear X
-    by_contra
-    rename_i h
-    rw [h] at Y
+    by_contra hzero
+    rw [hzero] at Y
     contradiction
-  · simp only [decide_eq_true_eq, decide_eq_false_iff_not, not_le, one_div] at X
+  · simp only [decide_eq_true_eq, decide_eq_false_iff_not, not_le] at X
     rw [X]
 
 /--
@@ -149,14 +141,36 @@ theorem UniformSample_apply (n : PNat) (x : Nat) (support : x < n) :
           contradiction
         · simp only [mul_zero]
       · simp only
-  conv =>
-    left
-    right
-    right
+  have hA :
+      (∑' (x1 : ℕ),
+        @ite ENNReal (x1 = x) (propDecidable (x1 = x)) 0
+          (if x1 < ↑n then
+            (2 ^ log 2 (↑(2 : ℕ+) * ↑n))⁻¹ *
+              (1 - ∑' (x : ℕ), if x < ↑n then 0 else UniformPowerOfTwoSample (2 * n) x)⁻¹ *
+              (@ite ENNReal (x = x1) (propDecidable (x = x1)) 1 0)
+          else 0)) = 0 := by
+    rw [ENNReal.tsum_eq_zero]
     intro x1
-    rw [A]
+    simpa using A x1
   clear A
-  simp only [tsum_zero, add_zero]
+  have hA' := congrArg (fun t =>
+    (2 ^ log 2 (↑(2 : ℕ+) * ↑n))⁻¹ *
+      (1 - ∑' (x : ℕ), if x < ↑n then 0 else UniformPowerOfTwoSample (2 * n) x)⁻¹ + t) hA
+  have hA'' :
+      ((2 ^ log 2 (↑(2 : ℕ+) * ↑n))⁻¹ *
+          (1 - ∑' (x : ℕ), if x < ↑n then 0 else UniformPowerOfTwoSample (2 * n) x)⁻¹ +
+        ∑' (x1 : ℕ),
+          @ite ENNReal (x1 = x) (propDecidable (x1 = x)) 0
+            (if x1 < ↑n then
+              (2 ^ log 2 (↑(2 : ℕ+) * ↑n))⁻¹ *
+                (1 - ∑' (x : ℕ), if x < ↑n then 0 else UniformPowerOfTwoSample (2 * n) x)⁻¹ *
+                (@ite ENNReal (x = x1) (propDecidable (x = x1)) 1 0)
+            else 0))
+        =
+      (2 ^ log 2 (↑(2 : ℕ+) * ↑n))⁻¹ *
+        (1 - ∑' (x : ℕ), if x < ↑n then 0 else UniformPowerOfTwoSample (2 * n) x)⁻¹ := by
+    simpa using hA'
+  refine hA''.trans ?_
   have A : ∀ x : ℕ, (@ite ℝ≥0∞ (x < ↑n) (decLt x ↑n) 0 (UniformPowerOfTwoSample (2 * n) x))
            =
            (@ite ℝ≥0∞ (↑n ≤ x) (decLe ↑n x) (UniformPowerOfTwoSample (2 * n) x) 0) := by
@@ -173,23 +187,30 @@ theorem UniformSample_apply (n : PNat) (x : Nat) (support : x < n) :
       · rename_i h1 h2
         simp only [not_lt] at h1
         contradiction
-  conv =>
-    left
-    right
-    right
-    right
-    right
+  have hsum :
+      (∑' (x : ℕ), if x < ↑n then 0 else UniformPowerOfTwoSample (2 * n) x) =
+        ∑' (x : ℕ), if ↑n ≤ x then UniformPowerOfTwoSample (2 * n) x else 0 := by
+    apply tsum_congr
     intro x
-    rw [A]
-  rw [uniformPowerOfTwoSample_autopilot]
+    exact A x
+  rw [hsum, uniformPowerOfTwoSample_autopilot]
   simp only [rw_ite, one_div, sum_simple]
-  rw [rw1 n]
-  rw [rw2 n]
-  rw [mul_inv]
-  simp only [PNat.val_ofNat, reduceSucc, inv_inv, isUnit_iff_ne_zero, ne_eq, pow_eq_zero_iff',
-    OfNat.ofNat_ne_zero, log_eq_zero_iff, gt_iff_lt, ofNat_pos, mul_lt_iff_lt_one_right, lt_one_iff,
-    PNat.ne_zero, not_ofNat_le_one, or_self, not_false_eq_true, and_true,
-    IsUnit.inv_mul_cancel_left, cast_eq_zero, ENNReal.coe_inv, coe_natCast]
+  let a : ENNReal := 2 ^ log 2 (↑(2 : ℕ+) * ↑n)
+  have ha0 : a ≠ 0 := by
+    simp [a]
+  have haTop : a ≠ ∞ := by
+    simp [a]
+  have haInv0 : a⁻¹ ≠ 0 := by
+    simp [haTop]
+  have hmul :
+      (a⁻¹ * (↑↑n : ENNReal))⁻¹ = (↑↑n : ENNReal)⁻¹ * a := by
+    simpa [inv_inv, mul_comm] using
+      (ENNReal.mul_inv (a := a⁻¹) (b := (↑↑n : ENNReal)) (Or.inl haInv0) (Or.inl (by simp [ha0])))
+  rw [show a⁻¹ * (a⁻¹ * (↑↑n : ENNReal))⁻¹ = a⁻¹ * ((↑↑n : ENNReal)⁻¹ * a) by rw [hmul]]
+  calc
+    a⁻¹ * ((↑↑n : ENNReal)⁻¹ * a) = ((↑↑n : ENNReal)⁻¹) * (a⁻¹ * a) := by ac_rfl
+    _ = (↑↑n : ENNReal)⁻¹ * 1 := by rw [ENNReal.inv_mul_cancel ha0 haTop]
+    _ = (↑↑n : ENNReal)⁻¹ := by simp
 
 /--
 Evaluation of the ``UniformSample`` distribution outside of its support.
@@ -208,7 +229,7 @@ lemma UniformSample_support_Sum (n : PNat) (m : ℕ) (h : m ≤ n) :
   · simp
   · rename_i m IH
     simp at *
-    have A : m ≤ ↑n := by exact lt_succ.mp (le.step h)
+    have A : m ≤ ↑n := by exact Nat.lt_succ_iff.mp (le.step h)
     have IH' := IH A
     clear IH
     rw [sum_range_succ]
@@ -232,9 +253,11 @@ Sum over the whole space of ``UniformSample`` is ``1``.
 @[simp]
 theorem UniformSample_normalizes (n : PNat) :
   ∑' a : ℕ, UniformSample n a = 1 := by
-  rw [← @sum_add_tsum_nat_add' _ _ _ _ _ _ n]
-  · simp [UniformSample_support_Sum']
-  · exact ENNReal.summable
+  rw [tsum_eq_sum (s := Finset.range n)]
+  · simpa using UniformSample_support_Sum' n
+  · intro b hb
+    rw [UniformSample_apply_out]
+    simpa [Finset.mem_range, not_lt] using hb
 
 /--
 ``UniformSample`` is a proper distribution

@@ -20,9 +20,8 @@ noncomputable section
 namespace SLang
 
 variable {T : Type}
-variable [dps : DPSystem T]
 
-/--
+/--r
 The counting query is 1-sensitive
 -/
 theorem exactCount_1_sensitive :
@@ -44,7 +43,7 @@ theorem exactCount_1_sensitive :
 The noised counting query satisfies DP property
 -/
 @[simp]
-theorem privNoisedCount_DP (ε₁ ε₂ : ℕ+) :
+theorem privNoisedCount_DP [dps : DPSystem T] (ε₁ ε₂ : ℕ+) :
   dps.prop (privNoisedCount ε₁ ε₂) ((ε₁ : NNReal) / ε₂) := by
   apply dps.noise_prop
   apply exactCount_1_sensitive

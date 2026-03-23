@@ -18,32 +18,36 @@ noncomputable section
 
 namespace SLang
 
-variable {T} [Preorder T]
+variable {T}
 
 /--
 The ``probWhile`` program is monotonic in terms of the number of unrollings.
 -/
 theorem probWhileCut_monotonic (cond : T → Bool) (body : T → SLang T) (init : T) (x : T) :
   Monotone (fun n : Nat => probWhileCut cond body n init x) := by
-  apply monotone_nat_of_le_succ
-  intro n
-  revert init
-  induction n
-  · intro init
-    simp [probWhileCut]
-  · rename_i n IH
-    intro init
-    simp [probWhileCut,probWhileFunctional]
-    split
-    · rename_i COND
-      unfold probBind
-      unfold SLang.probPure
-      simp
-      apply ENNReal.tsum_le_tsum
-      intro a
-      apply mul_le_mul_left'
-      exact IH a
-    · simp
+  have h_main : Monotone (fun n : Nat => probWhileCut cond body n init x) := by
+    apply monotone_nat_of_le_succ
+    intro n
+    revert init
+    induction n
+    · intro init
+      simp [probWhileCut]
+    · rename_i n IH
+      intro init
+      simp [probWhileCut, probWhileFunctional]
+      split
+      · -- Case: cond init = true
+        rename_i COND
+        unfold probBind
+        unfold SLang.probPure
+        simp
+        apply ENNReal.tsum_le_tsum
+        intro a
+        apply mul_le_mul_right
+        exact IH a
+      · -- Case: cond init = false
+        simp
+  exact h_main
 
 /--
 The ``probWhile`` term evaluates to the pointwise limit of the ``probWhileCut`` term

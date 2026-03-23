@@ -25,20 +25,18 @@ Simplify a sum over a step function
 @[simp]
 theorem sum_simple (bound : ℕ) (k : ENNReal) :
  (∑' (a : ℕ), if a < bound then k else 0) = k * bound := by
-  have A : Summable fun a => if a + bound < bound then k else 0 := by
-    exact ENNReal.summable
-  have B := @sum_add_tsum_nat_add' ENNReal _ _ _ _ (fun a => if a < bound then k else 0) bound A
-  rw [← B]
-  clear B
-  rw [(tsum_eq_zero_iff A).mpr]
-  · rw [← @Finset.sum_filter]
-    rw [Finset.filter_true_of_mem]
-    · simp
-      rw [mul_comm]
-    · intro _
-      exact List.mem_range.mp
-  · intro x
-    simp
+  rw [tsum_eq_sum (s := Finset.range bound)]
+  · calc
+      Finset.sum (Finset.range bound) (fun x => if x < bound then k else 0)
+        = Finset.sum (Finset.range bound) (fun _ => k) := by
+            apply Finset.sum_congr rfl
+            intro x hx
+            exact if_pos (Finset.mem_range.mp hx)
+      _ = bound • k := by simp
+      _ = k * bound := by rw [nsmul_eq_mul, mul_comm]
+  · intro x hx
+    rw [Finset.mem_range] at hx
+    exact if_neg hx
 
 
 /--
@@ -81,13 +79,12 @@ Partition series indices based on conditional guard
 theorem tsum_split_ite (cond : T → Bool) (f g : T → ENNReal) :
   (∑' (i : T), if cond i then f i else g i)
     = (∑' (i : { i : T | cond i}), f i) + (∑' (i : { i : T | ¬ cond i}), g i) := by
-  have B := @tsum_add_tsum_compl ENNReal T _ _ (fun i => if cond i then f i else g i) _ _ { i : T | cond i} ENNReal.summable ENNReal.summable
-  rw [← B]
-  clear B
-  rw [tsum_simpl_ite_left]
-  have C : { i : T | ¬ cond i} = { i : T | cond i}ᶜ := by exact rfl
-  rw [← C]
-  rw [tsum_simpl_ite_right]
+  rw [_root_.tsum_subtype, _root_.tsum_subtype, ← ENNReal.tsum_add]
+  apply tsum_congr
+  intro i
+  by_cases h : cond i
+  · simp [h]
+  · simp [h]
 
 /--
 Simplify guarded series based on index type
@@ -129,15 +126,13 @@ Partition series indices based on negation of conditional guard
 theorem tsum_split_ite' (cond : T → Bool) (f g : T → ENNReal) :
   (∑' (i : T), if cond i = false then f i else g i)
     = (∑' (i : { i : T | cond i = false}), f i) + (∑' (i : { i : T | cond i = true}), g i) := by
-  have B := @tsum_add_tsum_compl ENNReal T _ _ (fun i => if cond i = false then f i else g i) _ _ { i : T | cond i = false} ENNReal.summable ENNReal.summable
-  have A : { i : T | cond i = false}ᶜ = { i : T | cond i = true } := by
-    ext x
-    simp
-  rw [A] at B
-  rw [← B]
-  clear B
-  rw [tsum_simpl_ite_left']
-  rw [tsum_simpl_ite_right']
+  rw [_root_.tsum_subtype, _root_.tsum_subtype, ← ENNReal.tsum_add]
+  apply tsum_congr
+  intro i
+  by_cases h : cond i = false
+  · simp [h]
+  · have h' : cond i = true := by cases hcond : cond i <;> simp_all
+    simp [h]
 
 /--
 Add vacuous guard to series based on index type
@@ -162,10 +157,7 @@ Bound a (nonnegative) guarded series above by an unguarded one
 -/
 theorem tsum_split_less (cond : ℕ → Bool) (f : ℕ → ENNReal) :
   (∑' i : ℕ, if cond i then f i else 0) ≤ ∑' i : ℕ, f i := by
-  have A := @tsum_add_tsum_compl ENNReal ℕ _ _ f _ _ { i : ℕ | cond i} ENNReal.summable ENNReal.summable
-  rw [← A]
-  rw [tsum_split_coe_right]
-  simp
+  exact ENNReal.tsum_le_tsum (fun i => by by_cases h : cond i <;> simp [h])
 
 /--
 Remove leading zero from series
@@ -175,23 +167,30 @@ theorem tsum_shift_1 (f : ℕ → ENNReal) :
     ∑' n : ℕ, f n := by
   rw [ENNReal.tsum_eq_iSup_nat]
   rw [ENNReal.tsum_eq_iSup_nat]
-  have A : Monotone (fun i => ∑ a in Finset.range i, if a = 0 then 0 else f (a - 1)) := by
+  let S : ℕ → ENNReal := fun i => Finset.sum (Finset.range i) (fun a => if a = 0 then 0 else f (a - 1))
+  have A : Monotone S := by
     apply monotone_nat_of_le_succ
     intro n
+    dsimp [S]
     rw [sum_range_succ]
     simp
   rw [← Monotone.iSup_nat_add A 1]
   rw [iSup_congr]
   intro i
-  induction i
-  · simp
-  · rename_i i IH
-    rw [sum_range_succ]
-    simp
-    conv =>
-      right
-      rw [sum_range_succ]
-    rw [← IH]
+  induction i with
+  | zero =>
+      dsimp [S]
+      simp
+  | succ i IH =>
+      dsimp [S]
+      dsimp [S] at IH
+      calc
+        Finset.sum (Finset.range (i + 2)) (fun a => if a = 0 then 0 else f (a - 1))
+          = Finset.sum (Finset.range (i + 1)) (fun a => if a = 0 then 0 else f (a - 1)) + f i := by
+              rw [sum_range_succ]
+              simp
+        _ = Finset.sum (Finset.range i) (fun a => f a) + f i := by rw [IH]
+        _ = Finset.sum (Finset.range (i + 1)) (fun a => f a) := by rw [sum_range_succ]
 
 /--
 Remove leading zero from series
@@ -201,23 +200,30 @@ theorem tsum_shift'_1 (f : ℕ → ENNReal) :
     ∑' n : ℕ, f (n + 1) := by
   rw [ENNReal.tsum_eq_iSup_nat]
   rw [ENNReal.tsum_eq_iSup_nat]
-  have A : Monotone fun i => ∑ a in Finset.range i, if a = 0 then 0 else f a := by
+  let S : ℕ → ENNReal := fun i => Finset.sum (Finset.range i) (fun a => if a = 0 then 0 else f a)
+  have A : Monotone S := by
     apply monotone_nat_of_le_succ
     intro n
+    dsimp [S]
     rw [sum_range_succ]
     simp
   rw [← Monotone.iSup_nat_add A 1]
   rw [iSup_congr]
   intro i
-  induction i
-  · simp
-  · rename_i i IH
-    rw [sum_range_succ]
-    simp
-    conv =>
-      right
-      rw [sum_range_succ]
-    rw [← IH]
+  induction i with
+  | zero =>
+      dsimp [S]
+      simp
+  | succ i IH =>
+      dsimp [S]
+      dsimp [S] at IH
+      calc
+        Finset.sum (Finset.range (i + 2)) (fun a => if a = 0 then 0 else f a)
+          = Finset.sum (Finset.range (i + 1)) (fun a => if a = 0 then 0 else f a) + f (i + 1) := by
+              rw [sum_range_succ]
+              simp
+        _ = Finset.sum (Finset.range i) (fun a => f (a + 1)) + f (i + 1) := by rw [IH]
+        _ = Finset.sum (Finset.range (i + 1)) (fun a => f (a + 1)) := by rw [sum_range_succ]
 
 /--
 Remove two leading zeroes from series
@@ -227,31 +233,31 @@ theorem tsum_shift'_2 (f : ℕ → ENNReal) :
     ∑' n : ℕ, f (n + 2) := by
   rw [ENNReal.tsum_eq_iSup_nat]
   rw [ENNReal.tsum_eq_iSup_nat]
-  have A : Monotone fun i => ∑ a in Finset.range i, if a = 0 then 0 else if a = 1 then 0 else f a := by
+  let S : ℕ → ENNReal := fun i => Finset.sum (Finset.range i) (fun a => if a = 0 then 0 else if a = 1 then 0 else f a)
+  have A : Monotone S := by
     apply monotone_nat_of_le_succ
     intro n
+    dsimp [S]
     rw [sum_range_succ]
     simp
   rw [← Monotone.iSup_nat_add A 2]
   rw [iSup_congr]
   intro i
-  induction i
-  · simp
-    intro x h1 h2 h3
-    cases x
-    · contradiction
-    · rename_i x
-      · cases x
-        · contradiction
-        · rename_i x
-          contradiction
-  · rename_i i IH
-    rw [sum_range_succ]
-    simp
-    conv =>
-      right
-      rw [sum_range_succ]
-    rw [← IH]
+  induction i with
+  | zero =>
+      dsimp [S]
+      rw [Finset.sum_range_succ, Finset.sum_range_succ]
+      simp
+  | succ i IH =>
+      dsimp [S]
+      dsimp [S] at IH
+      calc
+        Finset.sum (Finset.range (i + 3)) (fun a => if a = 0 then 0 else if a = 1 then 0 else f a)
+          = Finset.sum (Finset.range (i + 2)) (fun a => if a = 0 then 0 else if a = 1 then 0 else f a) + f (i + 2) := by
+              rw [sum_range_succ]
+              simp
+        _ = Finset.sum (Finset.range i) (fun a => f (a + 2)) + f (i + 2) := by rw [IH]
+        _ = Finset.sum (Finset.range (i + 1)) (fun a => f (a + 2)) := by rw [sum_range_succ]
 
 /--
 Specialize Euclidean division from ℤ to ℕ
@@ -314,7 +320,4 @@ lemma nat_div_eq_le_lt_iff {a b c : ℕ} (Hc : 0 < c) : a = b / c <-> (a * c ≤
     apply LE.le.antisymm
     · apply (Nat.le_div_iff_mul_le Hc).mpr
       apply H1
-    · apply Nat.lt_succ_iff.mp
-      simp
-      apply (Nat.div_lt_iff_lt_mul Hc).mpr
-      apply H2
+    · exact Nat.le_of_lt_succ ((Nat.div_lt_iff_lt_mul Hc).2 H2)

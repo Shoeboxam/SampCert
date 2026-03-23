@@ -57,18 +57,9 @@ theorem singleton_to_event (m : Mechanism T U) (ε : ℝ) (h : DP_singleton m ε
 
 theorem event_to_singleton (m : Mechanism T U) (ε : ℝ) (h : DP m ε) :
   DP_singleton m ε := by
-  simp [DP_singleton]
-  simp [DP] at h
+  simp [DP_singleton, DP] at *
   intros l₁ l₂ h1 x
-  replace h1 := h l₁ l₂ h1 {x}
-  simp at h1
-  rw [tsum_eq_single x] at h1
-  · simp at h1
-    rw [tsum_eq_single x] at h1
-    · simp at h1
-      trivial
-    · aesop
-  · aesop
+  simpa using h l₁ l₂ h1 {x}
 
 theorem event_eq_singleton (m : Mechanism T U) (ε : ℝ) :
   DP m ε ↔ DP_singleton m ε := by
@@ -122,7 +113,7 @@ lemma pure_ApproximateDP [Countable U] {m : Mechanism T U} :
   intro δ _ ε' HDP
   rw [ApproximateDP]
   apply ApproximateDP_of_DP
-  have R1 : degrade δ ε' = ε' := by simp
+  have R1 : degrade δ ε' = ε' := by rfl
   rw [R1] at HDP
   trivial
 

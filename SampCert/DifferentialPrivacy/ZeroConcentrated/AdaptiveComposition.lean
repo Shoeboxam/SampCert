@@ -19,14 +19,14 @@ open Classical Nat Int Real ENNReal MeasureTheory Measure
 namespace SLang
 
 variable { T U V : Type }
-variable [HU : Inhabited U] [HU_meas : MeasurableSpace U] [HU_discr : MeasurableSingletonClass U] [HU_count : Countable U]
-variable [HV : Inhabited V] [HV_meas : MeasurableSpace V] [HV_discr : MeasurableSingletonClass V] [HV_count : Countable V]
-
 
 lemma sup_lemma {s : EReal} (HS0 : 0 < s) (HS1 : s < ⊤) (f : U -> EReal) :
     eexp (s * ⨆ (u : U), f u) =  ⨆ (u : U), eexp (s * f u) := by
   rw [@GaloisConnection.l_iSup _ _ _ _ _ _ _ (galois_connection_smul_l HS0 HS1) f]
   apply GaloisConnection.l_iSup galois_connection_eexp
+
+variable [Inhabited U] [MeasurableSpace U] [MeasurableSingletonClass U] [Countable U]
+variable [MeasurableSpace V] [MeasurableSingletonClass V] [Countable V]
 
 /--
 Bound on Renyi divergence on adaptively composed queries
@@ -45,7 +45,7 @@ lemma privComposeAdaptive_renyi_bound {nq1 : List T → PMF U} {nq2 : U -> List 
     apply le_iSup_iff.mpr
     intro b Hb
     -- Can use the fact that U is nonempty and RD is nonnegative
-    rcases HU with ⟨ u' ⟩
+    let u' : U := default
     have Hb := Hb u'
     apply le_trans ?G3 ?G4
     case G4 => apply Hb
@@ -112,14 +112,13 @@ lemma privComposeAdaptive_renyi_bound {nq1 : List T → PMF U} {nq2 : U -> List 
     rw [<- mul_assoc]
     skip
   rw [ENNReal.tsum_mul_left]
-  apply mul_le_mul_left'
+  apply _root_.mul_le_mul_right
 
   -- Apply upper bound lemma
   conv =>
     enter [1, 1, b]
     rw [mul_comm]
   exact le_iSup_iff.mpr fun b a_1 => a_1 a
-
 
 /--
 Adaptively Composed queries satisfy zCDP Renyi divergence bound.
@@ -143,16 +142,9 @@ theorem privComposeAdaptive_zCDPBound {nq1 : List T → PMF U} {nq2 : U -> List 
     rw [<- left_distrib]
     apply (mul_le_mul_of_nonneg_left _ ?goal1)
     case goal1 => linarith
-    apply add_le_add_right
-    have hrw :  ε₁ ^ 2 = ε₁ ^ 2 + 0 := by linarith
-    conv =>
-      lhs
-      rw [hrw]
-    clear hrw
-    apply add_le_add_left
-    refine mul_nonneg ?bc.bc.ha Hε₂
-    refine mul_nonneg ?G Hε₁
-    simp
+    have X1 : 0 ≤ 2 * ε₁ * ε₂ := by
+      nlinarith [mul_nonneg Hε₁ Hε₂]
+    nlinarith
   -- Rewrite the upper bounds in terms of Renyi divergences of nq1/nq2
   rw [zCDPBound] at h1
   -- have marginal_ub := h1 α Hα l₁ l₂ Hneighbours
@@ -177,8 +169,6 @@ theorem privComposeAdaptive_zCDPBound {nq1 : List T → PMF U} {nq2 : U -> List 
       · linarith
     exact _root_.add_le_add (h1 α Hα l₁ l₂ Hneighbours) conditional_ub
   exact privComposeAdaptive_renyi_bound Hα Hneighbours HAC1 HAC2
-
-
 
 /--
 Adaptive composition preserves absolute continuity

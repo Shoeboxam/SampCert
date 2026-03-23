@@ -156,6 +156,8 @@ partial def toDafnyExprTop (dname : String) (num_args : Nat) (names : List Strin
     e.withApp fun fn args =>
       if let .const ``WellFounded.fix .. := fn
       then toDafnyExprTop dname num_args names (args[4]!)
+      else if let .const ``WellFounded.Nat.fix .. := fn
+      then toDafnyExprTop dname num_args names (args[args.size - 1]!)
       else throwError "toDafnyExprTop: not supported -- application {e}"
   | .lam binderName _ body _ =>
     let sig_names := names ++ [binderName.toString]

@@ -24,7 +24,7 @@ theorem shifted_gauss_mean_pos (μ σ : ℝ) (n : ℤ) (k : ℤ) :
 /--
 Shifting ``gauss_term_ℝ`` is equivalent to shifting its mean.
 -/
-theorem shifted_gauss_mean_neg (μ : ℝ) (n : ℤ) (k : ℤ) :
+theorem shifted_gauss_mean_neg {σ : ℝ} (μ : ℝ) (n : ℤ) (k : ℤ) :
   (gauss_term_ℝ σ μ) (((-(n + k)) : ℤ) : ℝ) = (gauss_term_ℝ σ (-(μ + k))) n := by
   simp [gauss_term_ℝ, gauss_term_ℝ]
   ring_nf
@@ -34,138 +34,50 @@ theorem shifted_gauss_mean_neg (μ : ℝ) (n : ℤ) (k : ℤ) :
 -/
 theorem shifted_gauss_summable_pos {σ : ℝ} (h : σ ≠ 0) (μ : ℝ) (k : ℤ) :
   Summable fun (n : ℕ) => (gauss_term_ℝ σ μ) ((n + k) : ℤ) := by
-  conv =>
-    right
-    intro n
-    rw [shifted_gauss_mean_pos μ σ n k]
-  apply gauss_convergence_nat_pos h
+  refine Summable.congr (gauss_convergence_nat_pos h (μ := μ - k)) ?_
+  intro n
+  symm
+  simpa using (shifted_gauss_mean_pos μ σ (n : ℤ) k)
 
 /--
 ``gauss_term_ℝ`` is summable under any shift.
 -/
 theorem shifted_gauss_summable_neg {σ : ℝ} (h : σ ≠ 0) (μ : ℝ) (k : ℤ) :
   Summable fun (n : ℕ) => (gauss_term_ℝ σ μ) ((-(n + k)) : ℤ) := by
-  conv =>
-    right
-    intro n
-    rw [shifted_gauss_mean_neg μ n k]
-  apply gauss_convergence_nat_pos h
+  refine Summable.congr (gauss_convergence_nat_pos h (μ := -(μ + k))) ?_
+  intro n
+  symm
+  simpa using (shifted_gauss_mean_neg (σ := σ) μ (n : ℤ) k)
 
 /--
 The sum of ``gauss_term_ℝ`` does not change when the mean shifts by 1.
 -/
-theorem gauss_sum_1_periodic {σ : ℝ} (h : σ ≠ 0) (μ : ℝ) :
+theorem gauss_sum_1_periodic {σ : ℝ} (_h : σ ≠ 0) (μ : ℝ) :
   (∑' (n : ℤ), (gauss_term_ℝ σ μ) n) = ∑' (n : ℤ), (gauss_term_ℝ σ (μ + 1)) n := by
   have A : ∀ n : ℤ, (gauss_term_ℝ σ (μ + 1)) n = (gauss_term_ℝ σ μ) (n - 1) := by
-    intro n ; simp [gauss_term_ℝ, gauss_term_ℝ]
+    intro n
+    simp [gauss_term_ℝ, gauss_term_ℝ]
     ring_nf
-  conv => enter [2,1, n] ; rw [A]
-  clear A
-
-  have S1 : Summable fun (n : ℕ) => (gauss_term_ℝ σ μ) ((n + 1) : ℤ) := by
-    apply shifted_gauss_summable_pos h
-  have S2 : Summable fun (n : ℕ) => (gauss_term_ℝ σ μ) ((-(n + 1)) : ℤ) := by
-    apply gauss_convergence_nat_neg h
-  have X := @tsum_of_add_one_of_neg_add_one ℝ _ _ _ _ (fun (n : ℤ) => (gauss_term_ℝ σ μ) n) S1 S2
-  rw [X]
-  clear X
-
-  have S3 : Summable fun (n : ℕ) => (gauss_term_ℝ σ μ) (((n + 1) : ℤ) - 1) := by
-    simp
-    apply gauss_convergence_nat_pos h
-  have S4 : Summable fun (n : ℕ) => (gauss_term_ℝ σ μ) ((((-(n + 1)) : ℤ) - 1)) := by
-    have X : ∀ n : ℕ, ((-(n + 1)) : ℤ) - (1 : ℝ) = ((-(n + 2)) : ℤ) := by
-      intro n
-      simp
-      ring_nf
-    conv =>
-      right
-      intro n
-      rw [X]
-    apply shifted_gauss_summable_neg h
-  have Y := @tsum_of_add_one_of_neg_add_one ℝ _ _ _ _ (fun (n : ℤ) => (gauss_term_ℝ σ μ) (n - 1)) S3 S4
-  rw [Y]
-  clear Y
-
-  simp only [Int.cast_add, Int.cast_natCast, Int.cast_one, Int.cast_zero, neg_add_rev,
-    Int.reduceNeg, Int.cast_neg, add_sub_cancel_right, zero_sub]
-  clear S1 S2 S3 S4
-
-  have S5 : Summable fun (n : ℕ) => (gauss_term_ℝ σ μ) (n : ℤ) := by
-    apply gauss_convergence_nat_pos h
-  have X5 := @tsum_eq_zero_add ℝ _ _ _ _ (fun (n : ℕ) => (gauss_term_ℝ σ μ) n) S5
-  rw [X5]; clear X5 S5
-
-  have S6 :  Summable fun (n : ℕ) => (gauss_term_ℝ σ μ) (n + 1) := by
-    have S := @shifted_gauss_summable_pos σ h μ 1
-    apply Summable.congr S
-    intro b
-    simp
-
-  have X6 := @tsum_eq_zero_add ℝ _ _ _ _ (fun (n : ℕ) => (gauss_term_ℝ σ μ) (n + 1)) S6
-  rw [X6]
-
-  simp
-
-  rw [X6] ; clear X6 S6
-
-  have S7 : Summable fun (n : ℕ) => (gauss_term_ℝ σ μ) (-1 + -(@Nat.cast ℝ AddMonoidWithOne.toNatCast n)) := by
-    have X : ∀ n : ℕ, -(1 : ℝ) + -n = -(n + 1) := by
-      simp
-    conv =>
-      right
-      intro n
-      rw [X]
-    have S := @shifted_gauss_summable_neg σ h μ 1
-    apply Summable.congr S
-    intro b
-    simp
-
-  have X7 := @tsum_eq_zero_add ℝ _ _ _ _ (fun (n : ℕ) => (gauss_term_ℝ σ μ) (-1 + -(@Nat.cast ℝ AddMonoidWithOne.toNatCast n ))) S7
-  rw [X7] ; clear X7 S7
-
-  simp
-
-  ring_nf
-
-  conv =>
-    left
-    left
-    left
-    rw [add_assoc]
-    right
-    rw [add_comm]
-
-  ring_nf
-
-  conv =>
-    left
-    left
-    rw [add_assoc]
-    right
-    rw [add_comm]
-
-  ring_nf
-
-  have X : ∀ (b : ℕ), (2 : ℝ) + b = b + 1 + 1 := by
-    intro b
-    rw [add_comm]
-    rw [add_assoc]
-    congr
-    ring_nf
-
-  conv =>
-    left
-    left
-    right
-    right
-    intro b
-    rw [X]
-
-  congr
-  ext n
-  congr 1
-  ring_nf
+  let e : ℤ ≃ ℤ :=
+    { toFun := fun n => n - 1
+      invFun := fun n => n + 1
+      left_inv := by
+        intro n
+        ring_nf
+      right_inv := by
+        intro n
+        ring_nf }
+  have hshift : (∑' n : ℤ, (gauss_term_ℝ σ μ) (n - 1)) = ∑' n : ℤ, (gauss_term_ℝ σ μ) n := by
+    simpa [e] using (e.tsum_eq (fun n : ℤ => (gauss_term_ℝ σ μ) n))
+  calc
+    (∑' (n : ℤ), (gauss_term_ℝ σ μ) n)
+      = ∑' (n : ℤ), (gauss_term_ℝ σ μ) (n - 1) := by
+          exact hshift.symm
+    _ = ∑' (n : ℤ), (gauss_term_ℝ σ (μ + 1)) n := by
+          refine tsum_congr ?_
+          intro n
+          symm
+          exact A n
 
 /--
 The sum of ``gauss_term_ℝ`` does not change when the mean shifts by a positive integer.

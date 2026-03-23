@@ -64,20 +64,18 @@ The ``SLang`` term ``uniformPowerOfTwo`` is a proper distribution on ``ℕ``.
 theorem UniformPowerOfTwoSample_normalizes (n : PNat) :
   ∑' i : ℕ, UniformPowerOfTwoSample n i = 1 := by
   rw [UniformPowerOfTwoSample]
-  rw [← @sum_add_tsum_nat_add' _ _ _ _ _ _ (2 ^ (log 2 n))]
+  set k := 2 ^ (log 2 n)
+  rw [tsum_eq_sum (s := Finset.range k)]
   · rw [Finset.sum_range]
     conv =>
-      enter [1]
-      congr
-      · enter [2, a]
-        skip
-        rw [probUniformP2_eval_support (by exact a.isLt)]
-      · enter [1, a]
-        rw [probUniformP2_eval_zero (by exact Nat.le_add_left (2 ^ log 2 ↑n) a)]
-    simp
+      enter [1, 2, a]
+      rw [probUniformP2_eval_support (by simp [k, a.isLt])]
+    simp [k]
     apply ENNReal.mul_inv_cancel
     · simp
     · simp
-  exact ENNReal.summable
+  · intro b hb
+    rw [probUniformP2_eval_zero]
+    simpa [Finset.mem_range, not_lt, k] using hb
 
 end SLang

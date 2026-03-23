@@ -29,7 +29,7 @@ lemma ite_test (a b : ℕ) (x y : ENNReal) :
    = @ite ENNReal (a = b) (instDecidableEqNat a b) x y := by
   split ; any_goals { trivial }
 
-lemma trial_one_minus :
+lemma trial_one_minus (trial_spec : trial false + trial true = 1) :
   trial false = 1 - trial true := by
   by_contra h
   rw [← trial_spec] at h
@@ -39,7 +39,7 @@ lemma trial_one_minus :
     rw [h'] at trial_spec
     simp at trial_spec
 
-lemma trial_le_1 (i : ℕ) :
+lemma trial_le_1 (trial_spec : trial false + trial true = 1) (i : ℕ) :
   trial true ^ i ≤ 1 := by
   induction i
   · simp
@@ -61,7 +61,7 @@ lemma trial_le_1 (i : ℕ) :
 /--
 A geometric series from a trial result (namely, with ratio less than 1) is finite.
 -/
-theorem trial_sum_ne_top :
+theorem trial_sum_ne_top (trial_spec' : trial true < 1) :
   (∑' (n : ℕ), trial true ^ n) ≠ ⊤ := by
   rw [ENNReal.tsum_geometric]
   rw [ENNReal.inv_ne_top]
@@ -70,7 +70,7 @@ theorem trial_sum_ne_top :
   have A := not_le.mpr trial_spec'
   contradiction
 
-lemma trial_sum_ne_top' :
+lemma trial_sum_ne_top' (trial_spec' : trial true < 1) :
   ∑' (n : ℕ), trial true ^ n * trial true ≠ ⊤ := by
   have A := trial_sum_ne_top trial trial_spec'
   rw [ENNReal.tsum_eq_add_tsum_ite 0] at A
@@ -101,21 +101,8 @@ theorem geometric_succ_true (fuel n : ℕ) (st : Bool × ℕ) :
     (trial true) * probWhileCut geoLoopCond (geoLoopBody trial) fuel (true, n + 1) st := by
   cases st
   rename_i b m
-  simp [probWhileCut, probWhileFunctional, geoLoopCond, geoLoopBody, ite_apply, ENNReal.tsum_prod', tsum_bool]
-  conv =>
-    left
-    · congr
-      · rw [ENNReal.tsum_eq_add_tsum_ite (n + 1)]
-        right
-        right
-        intro x
-        rw [ite_simpl]
-      · rw [ENNReal.tsum_eq_add_tsum_ite (n + 1)]
-        right
-        right
-        intro x
-        rw [ite_simpl]
-  simp
+  simp [probWhileCut, probWhileFunctional, geoLoopCond, geoLoopBody, ENNReal.tsum_prod']
+  rw [add_comm]
 
 /--
 Inductive formula for an unrolling of ``probGeometric`` starting in a ``(false, -)`` state.
@@ -125,7 +112,7 @@ theorem geometric_succ_false (fuel n : ℕ) (st : Bool × ℕ) :
   probWhileCut geoLoopCond (geoLoopBody trial) (succ fuel) (false,n) st =
   if st = (false,n) then 1 else 0 := by
   cases st
-  simp [probWhileCut, probWhileFunctional, geoLoopCond, geoLoopBody, ite_apply, ENNReal.tsum_prod', tsum_bool]
+  simp [probWhileCut, probWhileFunctional, geoLoopCond]
 
 /--
 Evaluation for an unrolling of ``probGeometric`` on a ``(false, -)`` state
@@ -155,15 +142,11 @@ theorem geometric_monotone_counter (fuel n : ℕ) (st : Bool × ℕ) (h1 : st �
           exact Nat.ne_of_gt le.refl
         · rename_i h
           exact Nat.ne_of_gt (le.step h)
-      have B : (true, stn + 1) ≠ (false, n) := by exact
-        (bne_iff_ne (true, stn + 1) (false, n)).mp rfl
-      rw [IH _ A]
-      rw [IH _ B]
-      · simp
-      · simp
-        exact le.step h2
-      · simp
-        exact le.step h2
+      have B : (true, stn + 1) ≠ (false, n) := by
+        simp
+      have hFalse := IH (false, stn + 1) A (by simp; exact le.step h2)
+      have hTrue := IH (true, stn + 1) B (by simp; exact le.step h2)
+      simp [hFalse, hTrue]
 
 /--
 Evaluation for an unrolling of ``probGeometric`` starting in a ``(true, -)`` state and ending in a ``(false, -)`` state.
@@ -179,7 +162,7 @@ theorem geometric_progress (fuel n : ℕ) :
     intro n
     rw [geometric_succ_true]
     have A : succ fuel + 1 = fuel + 2 := by exact rfl
-    simp [A]
+    simp
     have B : n + succ fuel + 1 = (n + 1) + fuel + 1 := by exact Nat.add_right_comm n (succ fuel) 1
     simp [B]
     simp [IH (n + 1)]
@@ -248,8 +231,7 @@ theorem geometric_preservation' (n m : ℕ) (h1 : ¬ m = 0) (h2 : n ≥ m) :
   probWhileCut geoLoopCond (geoLoopBody trial) (n + 1) (true,0) (false,m) := by
   have prog := geometric_preservation trial (n - 1) (m - 1) 0
   have P : ¬ n = 0 := by
-      by_contra
-      rename_i h
+      by_contra h
       subst h
       simp at h2
       subst h2
@@ -346,7 +328,7 @@ theorem geometric_returns_false (n fuel k : ℕ) (b : Bool) :
     · rename_i h
       simp at h
       subst h
-      simp [IH]
+      simp
 
 lemma if_simpl_geo (x n : ℕ) :
   (@ite ENNReal (x = n) (propDecidable (x = n)) 0 (@ite ENNReal (x = 0) (instDecidableEqNat x 0) 0 ((trial true ^ (x - 1) * trial false) * (@ite ENNReal (n = x) (propDecidable (n = (false, x).2)) 1 0)))) = 0 := by
@@ -369,25 +351,37 @@ theorem probGeometric_apply (n : ℕ) :
   simp only [probGeometric, Bind.bind, Pure.pure, SLang.bind_apply, SLang.pure_apply]
   rw [ENNReal.tsum_prod']
   rw [tsum_bool]
-  simp only [probWhile, ne_eq, Prod.mk.injEq, false_and, not_false_eq_true,
-    geometric_returns_false, ciSup_const, zero_mul, tsum_zero, add_zero]
-  simp only [ne_eq, Prod.mk.injEq, false_and, not_false_eq_true, geometric_pwc_sup, ite_mul,
-    zero_mul]
+  simp only [probWhile, geometric_returns_false, ciSup_const, zero_mul, tsum_zero, add_zero]
+  simp only [geometric_pwc_sup, ite_mul, zero_mul]
   rw [ENNReal.tsum_eq_add_tsum_ite n]
   simp only [↓reduceIte, mul_one]
-  conv =>
-    left
-    right
-    right
+  have hTail :
+      ∀ x : ℕ,
+        (if x = n then 0 else if x = 0 then 0 else if n = x then trial true ^ (x - 1) * trial false else 0) = 0 := by
     intro x
-    rw [if_simpl_geo]
-  simp only [tsum_zero, add_zero]
+    split
+    · simp
+    · split
+      · simp
+      · split
+        · rename_i h1 h2 h3
+          subst h3
+          contradiction
+        · simp
+  have hTailSum :
+      (∑' x : ℕ,
+        if x = n then 0 else if x = 0 then 0 else if n = x then trial true ^ (x - 1) * trial false else 0) = 0 := by
+    rw [ENNReal.tsum_eq_zero]
+    intro x
+    exact hTail x
+  simp [hTailSum]
 
 /--
 ``probGeometric`` is a proper distribution.
 -/
 @[simp]
-theorem probGeometric_normalizes :
+theorem probGeometric_normalizes (trial_spec : trial false + trial true = 1)
+    (trial_spec' : trial true < 1) :
   (∑' n : ℕ, probGeometric trial n) = 1 := by
   simp only [probGeometric_apply]
   rw [tsum_shift'_1]
@@ -399,11 +393,13 @@ theorem probGeometric_normalizes :
     by_contra h
     rw [h] at B
     contradiction
-  conv =>
-    left
-    right
+  have hMulSub :
+      (∑' n : ℕ, trial true ^ n * (1 - trial true)) =
+        ∑' n : ℕ, (trial true ^ n * 1 - trial true ^ n * trial true) := by
+    apply tsum_congr
     intro n
     rw [ENNReal.mul_sub (A n)]
+  rw [hMulSub]
   clear A
   simp only [mul_one]
   rw [ENNReal.tsum_sub]
@@ -425,7 +421,8 @@ theorem probGeometric_normalizes :
 /--
 ``probGeometric`` is a proper distribution on ``[1, ∞) ⊂ ℕ``.
 -/
-theorem probGeometric_normalizes' :
+theorem probGeometric_normalizes' (trial_spec : trial false + trial true = 1)
+    (trial_spec' : trial true < 1) :
   (∑' n : ℕ, probGeometric trial (n + 1)) = 1 := by
   have A := probGeometric_normalizes trial trial_spec trial_spec'
   rw [ENNReal.tsum_eq_add_tsum_ite 0] at A

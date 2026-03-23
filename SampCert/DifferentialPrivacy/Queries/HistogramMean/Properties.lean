@@ -32,28 +32,34 @@ instance : MeasurableSpace (Option (Fin ↑numBins) × Option ℚ) where
   MeasurableSet' _ := True
   measurableSet_empty := by simp only
   measurableSet_compl := by simp only [imp_self, implies_true]
-  measurableSet_iUnion := by simp only [implies_true, imp_self]
+  measurableSet_iUnion := by simp only [implies_true]
 
 instance : DiscreteMeasurableSpace (Option (Fin ↑numBins) × Option ℚ) where
-  forall_measurableSet := by simp only [MeasurableSpace.measurableSet_top, implies_true]
+  forall_measurableSet := by
+    intro s
+    trivial
 
 instance : MeasurableSpace (Option ℚ) where
   MeasurableSet' _ := True
   measurableSet_empty := by simp only
   measurableSet_compl := by simp only [imp_self, implies_true]
-  measurableSet_iUnion := by simp only [implies_true, imp_self]
+  measurableSet_iUnion := by simp only [implies_true]
 
 instance : DiscreteMeasurableSpace (Option ℚ) where
-  forall_measurableSet := by simp only [MeasurableSpace.measurableSet_top, implies_true]
+  forall_measurableSet := by
+    intro s
+    trivial
 
 instance : MeasurableSpace (Option (Fin ↑numBins)) where
   MeasurableSet' _ := True
   measurableSet_empty := by simp only
   measurableSet_compl := by simp only [imp_self, implies_true]
-  measurableSet_iUnion := by simp only [implies_true, imp_self]
+  measurableSet_iUnion := by simp only [implies_true]
 
 instance : DiscreteMeasurableSpace (Option (Fin ↑numBins)) where
-  forall_measurableSet := by simp only [MeasurableSpace.measurableSet_top, implies_true]
+  forall_measurableSet := by
+    intro s
+    trivial
 
 
 /-

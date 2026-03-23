@@ -21,23 +21,25 @@ namespace SLang
 
 lemma natAbs_to_abs (a b : ℤ) :
   (a - b).natAbs = |(a : ℝ) - (b : ℝ)| := by
-  rw [Int.cast_natAbs]
+  rw [Nat.cast_natAbs]
   simp only [cast_abs, Int.cast_sub]
 
 lemma normalizing_constant_nonzero (ε₁ ε₂ Δ : ℕ+) :
   (rexp (ε₁ / (Δ * ε₂)) - 1) / (rexp (ε₁ / (Δ * ε₂)) + 1) ≠ 0 := by
-  field_simp
-  intro h
-  have A : 0 < (ε₁ : ℝ) / (Δ * ε₂) := by
-    simp
-  have B : rexp 0 < rexp ((ε₁ : ℝ) / (Δ * ε₂)) := by
-    exact exp_lt_exp.mpr A
-  rw [exp_zero] at B
-  rw [@sub_eq_zero] at h
-  have C : 1 ≠ rexp ((ε₁ : ℝ) / (Δ * ε₂)) := by
-    exact _root_.ne_of_lt B
-  rw [h] at C
-  contradiction
+  apply div_ne_zero
+  · have hpos : 0 < (ε₁ : ℝ) / (Δ * ε₂) := by
+      apply _root_.div_pos
+      · exact_mod_cast ε₁.pos
+      · exact_mod_cast mul_pos Δ.pos ε₂.pos
+    have hexp : 1 < rexp ((ε₁ : ℝ) / (Δ * ε₂)) := by
+      rw [← exp_zero]
+      exact exp_lt_exp.mpr hpos
+    linarith
+  · have : 0 < rexp ((ε₁ : ℝ) / (Δ * ε₂)) + 1 := by
+      apply Right.add_pos_of_nonneg_of_pos
+      · apply exp_nonneg
+      · simp
+    linarith
 
 /--
 Differential privacy bound for a ``privNoisedQueryPure``
@@ -49,7 +51,7 @@ theorem privNoisedQueryPure_DP_bound (query : List T → ℤ) (Δ ε₁ ε₂ : 
   intros l₁ l₂ neighbours x
   simp [privNoisedQueryPure]
   simp [DiscreteLaplaceGenSamplePMF]
-  simp [DFunLike.coe, PMF.instFunLike]
+  simp [DFunLike.coe]
   rw [← ENNReal.ofReal_div_of_pos]
   · apply ofReal_le_ofReal
     rw [division_def]
@@ -66,18 +68,19 @@ theorem privNoisedQueryPure_DP_bound (query : List T → ℤ) (Δ ε₁ ε₂ : 
       left
       rw [← mul_assoc]
       left
-      rw [mul_inv_cancel (normalizing_constant_nonzero ε₁ ε₂ Δ)]
+      rw [mul_inv_cancel₀ (normalizing_constant_nonzero ε₁ ε₂ Δ)]
     simp only [one_mul]
     rw [← division_def]
     rw [← exp_sub]
     simp only [sub_neg_eq_add, exp_le_exp]
     rw [neg_div']
-    rw [div_add_div_same]
+    rw [← add_div]
     rw [division_def]
-    apply (mul_inv_le_iff' _).mpr
-    · have B : (ε₁ : ℝ) / ε₂ * (Δ * ε₂ / ε₁) = Δ := by
+    let d : ℝ := ↑↑Δ * ↑↑ε₂ / ↑↑ε₁
+    have hgoal : (-(|↑x - ↑(query l₁)| : ℝ) + (|↑x - ↑(query l₂)| : ℝ)) ≤ (↑↑ε₁ / ↑↑ε₂) * d := by
+      have B : (ε₁ : ℝ) / ε₂ * d = Δ := by
+        dsimp [d]
         ring_nf
-        simp
         field_simp
       rw [B]
       clear B
@@ -85,7 +88,7 @@ theorem privNoisedQueryPure_DP_bound (query : List T → ℤ) (Δ ε₁ ε₂ : 
       rw [add_comm]
       ring_nf
       -- Triangle inequality
-      have C := @abs_sub_abs_le_abs_sub ℝ _ ((x : ℝ) - (query l₂)) ((x : ℝ) - (query l₁))
+      have C := abs_sub_abs_le_abs_sub ((x : ℝ) - (query l₂ : ℝ)) ((x : ℝ) - (query l₁ : ℝ))
       apply le_trans C
       clear C
       simp
@@ -95,24 +98,30 @@ theorem privNoisedQueryPure_DP_bound (query : List T → ℤ) (Δ ε₁ ε₂ : 
 
       rw [← natAbs_to_abs]
       exact Nat.cast_le.mpr bounded_sensitivity
-
-    · simp
-  · rw [_root_.mul_pos_iff]
-    left
-    constructor
-    · rw [_root_.div_pos_iff]
-      left
-      have A : 1 < rexp ((ε₁ : ℝ) / (Δ * ε₂)) := by
-        rw [← exp_zero]
-        apply exp_lt_exp.mpr
-        simp
-      constructor
-      · simp [A]
-      · apply @lt_trans _ _ _ 2 _
-        · simp
-        · rw [← one_add_one_eq_two]
-          exact (add_lt_add_iff_right 1).mpr A
-    · apply exp_pos
+    have hd_pos : 0 < d := by
+      dsimp [d]
+      positivity
+    have hscaled :=
+      mul_le_mul_of_nonneg_right hgoal (inv_nonneg.mpr hd_pos.le)
+    have hmain : (-(|↑x - ↑(query l₁)| : ℝ) + (|↑x - ↑(query l₂)| : ℝ)) * d⁻¹ ≤ ↑↑ε₁ / ↑↑ε₂ := by
+      refine hscaled.trans ?_
+      rw [mul_assoc, mul_inv_cancel₀ (show d ≠ 0 by linarith), mul_one]
+    simpa [d, div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc] using hmain
+  · apply _root_.mul_pos
+    · apply _root_.div_pos
+      · have A : 1 < rexp ((ε₁ : ℝ) / (Δ * ε₂)) := by
+          rw [← exp_zero]
+          apply exp_lt_exp.mpr
+          apply _root_.div_pos
+          · exact_mod_cast ε₁.pos
+          · exact_mod_cast mul_pos Δ.pos ε₂.pos
+        linarith
+      · have : 0 < rexp ((ε₁ : ℝ) / (Δ * ε₂)) + 1 := by
+          apply Right.add_pos_of_nonneg_of_pos
+          · apply exp_nonneg
+          · simp
+        linarith
+    · exact exp_pos _
 
 
 /--

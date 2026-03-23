@@ -3,8 +3,11 @@ Copyright (c) 2024 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Jean-Baptiste Tristan
 -/
+import Mathlib.Analysis.Fourier.PoissonSummation
+import Mathlib.Analysis.SpecialFunctions.Gaussian.FourierTransform
 import Mathlib.NumberTheory.ModularForms.JacobiTheta.TwoVariable
 import Mathlib.Probability.ProbabilityMassFunction.Basic
+import Mathlib.Topology.Algebra.InfiniteSum.Order
 
 /-!
 # Discrete Guassian Definitions
@@ -22,7 +25,7 @@ noncomputable section
 open Classical Complex Real Nat Filter Asymptotics FourierTransform
 open Continuous
 
-attribute [local instance] Real.fact_zero_lt_one
+local instance : Fact (0 < (1 : ℝ)) := ⟨zero_lt_one⟩
 
 /--
 ℝ-valued closed form for the Gaussian PMF over ℝ
@@ -52,10 +55,6 @@ Agreement between the ℂ-valued and ℝ-valued gaussian formulas over ℝ
 theorem gauss_term_swap (σ μ : ℝ) (n : ℝ) :
   (gauss_term_ℂ σ μ n) = gauss_term_ℝ σ μ n := by
   simp [gauss_term_ℂ, gauss_term_ℝ]
-
--- def fourier_gauss_term (σ : ℝ) (x : ℝ) : ℂ :=
---  Real.exp (- 2 * (π * σ * x)^2) / ((((π * (σ:ℝ)^2 * (2 : ℝ))⁻¹) ^ (2 : ℝ)⁻¹) : ℝ)
-
 
 /--
 Fourier transform of ``gauss_term``, namely ``sqrt(2πσ^2) * exp(-2(π σ x)^2)``
@@ -88,9 +87,24 @@ theorem gauss_term_jacobi (σ μ : ℝ) :
   simp [gauss_term_ℂ, gauss_term_ℝ, jacobiTheta₂_term]
   rw [← Complex.exp_add]
   congr 1
+  norm_num
   ring_nf
   simp [pi_ne_zero]
-  ring_nf
+  have hmul :
+      (↑n * ↑μ * (((σ : ℂ) ^ (2 : ℕ))⁻¹) : ℂ) * (((1 : ℤ) : ℂ))
+        = ↑n * ↑μ * (((σ : ℂ) ^ (2 : ℕ))⁻¹) := by
+    norm_num
+  calc
+    ((↑n * ↑μ * (((σ : ℂ) ^ (2 : ℕ))⁻¹) : ℂ) * (((1 : ℤ) : ℂ))
+        + ↑n ^ 2 * (((σ : ℂ) ^ (2 : ℕ))⁻¹) * ((-1 / 2 : ℂ)))
+        = (↑n * ↑μ * (((σ : ℂ) ^ (2 : ℕ))⁻¹) : ℂ)
+            + ↑n ^ 2 * (((σ : ℂ) ^ (2 : ℕ))⁻¹) * ((-1 / 2 : ℂ)) := by
+            rw [hmul]
+    _ = (↑n * ↑μ * (((σ : ℂ) ^ (2 : ℕ))⁻¹) : ℂ)
+          + -(↑n ^ 2 * (((σ : ℂ) ^ (2 : ℕ))⁻¹) * ((2 : ℂ)⁻¹)) := by
+          have hhalf : ((-1 / 2 : ℂ)) = -((2 : ℂ)⁻¹) := by norm_num
+          rw [hhalf]
+          ring
 
 lemma jacobi_tau_positive {σ : ℝ} (h : σ ≠ 0) :
   0 < (Complex.I * ((2 : ℂ) * σ^2)⁻¹ * π⁻¹).im := by
@@ -113,12 +127,9 @@ theorem summable_gauss_term {σ : ℝ} (h : σ ≠ 0) (μ : ℝ) :
 -/
 theorem summable_gauss_term' {σ : ℝ} (h : σ ≠ 0) (μ : ℝ) :
   Summable fun n : ℤ => gauss_term_ℝ σ μ n := by
-  rw [← Complex.summable_ofReal]
-  conv =>
-    right
-    intro n
-    rw [← gauss_term_swap]
-  apply summable_gauss_term h
+  have hs : Summable (fun n : ℤ => (gauss_term_ℝ σ μ n : ℂ)) := by
+    simpa [gauss_term_swap] using summable_gauss_term h μ
+  exact Complex.summable_ofReal.mp hs
 
 /--
 Big O asymptotic for ``gauss_term``.
@@ -127,7 +138,7 @@ theorem asymptotics_gauss_term {σ : ℝ} (h : σ ≠ 0) :
   gauss_term_ℂ σ 0 =O[cocompact ℝ] (fun x => |x| ^ (-2 : ℝ)) := by
   apply IsLittleO.isBigO
   unfold gauss_term_ℂ gauss_term_ℝ
-  simp only [ContinuousMap.coe_mk, ofReal_zero, sub_zero]
+  simp only [ContinuousMap.coe_mk, sub_zero]
   have Y : ∀ x : ℝ, -1 / (2 * σ ^ 2) * x ^ 2 = -x ^ 2 / (2 * σ ^ 2) := by
     intro x
     ring_nf
@@ -152,35 +163,51 @@ theorem gauss_term_shift (σ μ : ℝ) (n τ : ℤ) :
   simp [gauss_term_ℂ, gauss_term_ℝ]
   congr 4
   ring_nf
+  have h1 : (((1 : ℤ) : ℂ)) = (1 : ℂ) := by norm_num
+  refine Eq.symm ?_
+  calc
+    ↑n + (((↑τ : ℂ) * (((1 : ℤ) : ℂ))) - ↑μ) = ↑n + (((↑τ : ℂ) * (1 : ℂ)) - ↑μ) := by rw [h1]
+    _ = ↑n + (↑τ - ↑μ) := by rw [mul_one]
 
 /--
 ``fourier_gauss_term`` is the Fourier transform of the ``gauss_term`` with mean 0.
 -/
 theorem fourier_gauss_term_correspondance {σ : ℝ} (h : σ ≠ 0) :
-  (𝓕 (gauss_term_ℂ σ 0)) = fourier_gauss_term σ := by
-  have P : 0 < (π * (2 : ℂ) * σ^2)⁻¹.re  := by
-    simp [sq, h, pi_pos]
-  have X := @fourierIntegral_gaussian_pi' (π * 2 * σ^2)⁻¹ P 0
-  have A : gauss_term_ℂ σ 0 = fun x : ℝ => cexp (-π * (π * (2 : ℂ) * σ ^ 2)⁻¹ * x ^ 2 + 2 * π * 0 * x) := by
-    ext x
-    simp [gauss_term_ℂ, gauss_term_ℝ]
+  FourierTransform.fourier ⇑(gauss_term_ℂ σ 0) = fourier_gauss_term σ := by
+  have hσc : (σ : ℂ) ≠ 0 := by
+    exact_mod_cast h
+  have P : 0 < ((((Real.pi : ℂ) * (2 : ℂ) * (σ : ℂ)^2)⁻¹).re) := by
+    have hz : ((((Real.pi : ℂ) * (2 : ℂ) * (σ : ℂ)^2)⁻¹).re) = (Real.pi * 2 * σ^2)⁻¹ := by
+      simp [sq, mul_assoc]
+    rw [hz]
+    exact inv_pos.mpr <| by
+      nlinarith [Real.pi_pos, sq_pos_of_ne_zero h]
+  have X := fourier_gaussian_pi (b := (((Real.pi : ℂ) * (2 : ℂ) * (σ : ℂ)^2)⁻¹)) P
+  have A : ⇑(gauss_term_ℂ σ 0) = fun x : ℝ =>
+      cexp (-(Real.pi : ℂ) * (((Real.pi : ℂ) * (2 : ℂ) * (σ : ℂ)^2)⁻¹) * (x : ℂ) ^ 2) := by
+    funext x
+    simp [gauss_term_ℂ, gauss_term_ℝ, div_eq_mul_inv]
     congr 1
     ring_nf
     simp [pi_ne_zero]
-  rw [A]
-  rw [X]
-  unfold fourier_gauss_term
-  ext x
-  ring_nf
-  simp
-  ring_nf
-  simp
+  rw [A, X]
+  funext x
+  have hexp : -(Real.pi : ℂ) / (((Real.pi : ℂ) * (2 : ℂ) * (σ : ℂ)^2)⁻¹) * (x : ℂ) ^ 2 =
+      (-2 : ℂ) * ((Real.pi : ℂ) * (σ : ℂ) * (x : ℂ))^2 := by
+    calc
+      -(Real.pi : ℂ) / (((Real.pi : ℂ) * (2 : ℂ) * (σ : ℂ)^2)⁻¹) * (x : ℂ) ^ 2
+          = -(Real.pi : ℂ) * ((Real.pi : ℂ) * (2 : ℂ) * (σ : ℂ)^2) * (x : ℂ) ^ 2 := by
+              field_simp [hσc, pi_ne_zero]
+      _ = (-2 : ℂ) * ((Real.pi : ℂ) * (σ : ℂ) * (x : ℂ))^2 := by
+          ring
+  rw [hexp]
+  simp [fourier_gauss_term, div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc]
 
 /--
 Big O asymptotic for Fourier transform of ``gauss_term``.
 -/
 theorem asymptotics_fourier_gauss_term {σ : ℝ} (h : σ ≠ 0) :
-  (𝓕 (gauss_term_ℂ σ 0)) =O[cocompact ℝ] (fun x => |x| ^ (-2 : ℝ)) := by
+  FourierTransform.fourier ⇑(gauss_term_ℂ σ 0) =O[cocompact ℝ] (fun x => |x| ^ (-2 : ℝ)) := by
   rw [fourier_gauss_term_correspondance h]
   apply IsLittleO.isBigO
   unfold fourier_gauss_term
@@ -209,51 +236,57 @@ theorem asymptotics_fourier_gauss_term {σ : ℝ} (h : σ ≠ 0) :
 Poisson sum formula specialized to ``gauss_term``.
 -/
 theorem poisson_gauss_term {σ : ℝ} (h : σ ≠ 0) (x : ℝ) :
-  (∑' n : ℤ, gauss_term_ℂ σ 0 (x + n)) = ∑' (n : ℤ), (𝓕 (gauss_term_ℂ σ 0)) n * (@fourier 1 n) x := by
+  (∑' n : ℤ, gauss_term_ℂ σ 0 (x + n)) =
+    ∑' (n : ℤ), FourierTransform.fourier ⇑(gauss_term_ℂ σ 0) n * (@fourier 1 n) x := by
   have B := asymptotics_gauss_term h
   have C := asymptotics_fourier_gauss_term h
   have D : (1 : ℝ) < 2 := one_lt_two
-  have X := @Real.tsum_eq_tsum_fourierIntegral_of_rpow_decay (gauss_term_ℂ σ 0) ((gauss_term_ℂ σ 0).continuous_toFun) 2 D B C x
-  rw [← X]
+  simpa using
+    (Real.tsum_eq_tsum_fourier_of_rpow_decay ((gauss_term_ℂ σ 0).continuous_toFun) D B C x)
 
 /--
 Fourier transform for ``gauss_term`` is summable.
 -/
 theorem summable_fourier_gauss_term {σ : ℝ} (h : σ ≠ 0) :
-  Summable fun n : ℤ => 𝓕 (gauss_term_ℂ σ 0) n := by
+  Summable fun n : ℤ => FourierTransform.fourier ⇑(gauss_term_ℂ σ 0) n := by
   have A := Real.summable_abs_int_rpow one_lt_two
-  have B := @IsBigO.comp_tendsto ℝ ℤ ℂ ℝ _ _ (𝓕 (gauss_term_ℂ σ 0)) (fun (x : ℝ) => ((|x| ^ (-2 : ℝ)) : ℝ)) (cocompact ℝ) (asymptotics_fourier_gauss_term h) Int.cast cofinite Int.tendsto_coe_cofinite
-  have C := @summable_of_isBigO ℤ ℂ _ _ (fun z : ℤ => 𝓕 (gauss_term_ℂ σ 0) z) (fun x : ℤ => |(x : ℝ)| ^ (-2 : ℝ)) A B
-  exact C
+  have B :=
+    @IsBigO.comp_tendsto ℝ ℤ ℂ ℝ _ _
+      (FourierTransform.fourier ⇑(gauss_term_ℂ σ 0))
+      (fun x : ℝ => ((|x| ^ (-2 : ℝ)) : ℝ))
+      (cocompact ℝ)
+      (asymptotics_fourier_gauss_term h)
+      Int.cast cofinite Int.tendsto_coe_cofinite
+  exact @summable_of_isBigO ℤ ℂ _ _
+    (fun z : ℤ => FourierTransform.fourier ⇑(gauss_term_ℂ σ 0) z)
+    (fun x : ℤ => |(x : ℝ)| ^ (-2 : ℝ)) A B
 
 /--
 Fourier transform of ``gauss_term_ℂ`` at the integers is the same as the Fourier coeficients of the sum of the translates.
 -/
 theorem fourier_coeff_correspondance {σ : ℝ} (h : σ ≠ 0) (n : ℤ) :
-  fourierCoeff (gauss_series_circle σ) n = 𝓕 (gauss_term_ℂ σ 0) n := by
-  apply Real.fourierCoeff_tsum_comp_add
-  apply (fun K => summable_of_isBigO (Real.summable_abs_int_rpow one_lt_two)
-  ((isBigO_norm_restrict_cocompact ⟨_ , ((gauss_term_ℂ σ 0).continuous_toFun)⟩  (zero_lt_one.trans one_lt_two) (asymptotics_gauss_term h) K).comp_tendsto
-  Int.tendsto_coe_cofinite))
+  fourierCoeff (gauss_series_circle σ) n = FourierTransform.fourier ⇑(gauss_term_ℂ σ 0) n := by
+  simpa [gauss_series_circle] using
+    (Real.fourierCoeff_tsum_comp_add
+      (f := gauss_term_ℂ σ 0)
+      (hf := fun K =>
+        summable_of_isBigO
+          (Real.summable_abs_int_rpow one_lt_two)
+          ((isBigO_norm_restrict_cocompact (gauss_term_ℂ σ 0)
+            (zero_lt_one.trans one_lt_two) (asymptotics_gauss_term h) K).comp_tendsto
+            Int.tendsto_coe_cofinite))
+      n)
 
 /--
 Fourier series obtained by evaluating the Fourier transform of ``gauss_term`` exists (i.e., is summable).
 -/
 theorem summable_fourier_gauss_term' {σ : ℝ} (h : σ ≠ 0) (μ : ℝ) :
-  Summable fun (n : ℤ) => 𝓕 (gauss_term_ℂ σ 0) n * (@fourier 1 n) (-μ) := by
+  Summable fun (n : ℤ) => FourierTransform.fourier ⇑(gauss_term_ℂ σ 0) n * (@fourier 1 n) (-μ) := by
   have A : Summable fun n : ℤ => fourierCoeff (gauss_series_circle σ) n := by
-    conv =>
-      right
-      intro n
-      rw [fourier_coeff_correspondance h]
-    apply summable_fourier_gauss_term h
-  have B := has_pointwise_sum_fourier_series_of_summable A (- μ)
-  existsi ((gauss_series_circle σ) (-μ))
-  conv =>
-    left
-    intro n
-    rw [← fourier_coeff_correspondance h]
-  exact B
+    simpa [fourier_coeff_correspondance h] using summable_fourier_gauss_term h
+  have B := has_pointwise_sum_fourier_series_of_summable A (-μ)
+  refine ⟨(gauss_series_circle σ) (-μ), ?_⟩
+  simpa [fourier_coeff_correspondance h] using B
 
 lemma gauss_term_pos (σ μ : ℝ) (n : ℤ) :
   0 < (gauss_term_ℝ σ μ) n := by
@@ -270,10 +303,7 @@ The sum of ``gauss_term_ℝ`` is positive.
 -/
 theorem sum_gauss_term_pos {σ : ℝ} (h : σ ≠ 0) (μ : ℝ) :
   0 < (∑' (x : ℤ), (gauss_term_ℝ σ μ) x) := by
-  apply tsum_pos (summable_gauss_term' h μ) _ 0
-  · apply gauss_term_pos
-  · intro i
-    apply gauss_term_noneg
+  exact (summable_gauss_term' h μ).tsum_pos (fun i => gauss_term_noneg σ μ i) 0 (gauss_term_pos σ μ 0)
 
 /--
 The sum of ``gauss_term_ℝ`` is nonnegative.
@@ -295,11 +325,7 @@ The discrete gaussian is positive.
 theorem discrete_gaussian_pos {σ : ℝ} (h : σ ≠ 0) (μ : ℝ) (n : ℤ) :
   0 < discrete_gaussian σ μ n := by
   unfold discrete_gaussian
-  rw [div_pos_iff]
-  left
-  constructor
-  · apply gauss_term_pos
-  · apply sum_gauss_term_pos h μ
+  exact div_pos (gauss_term_pos σ μ n) (sum_gauss_term_pos h μ)
 
 /--
 The discrete gaussian is nonnegative.
@@ -333,8 +359,7 @@ theorem discrete_gaussian_normalizes {σ : ℝ} (h : σ ≠ 0) (μ : ℝ) :
   (∑' n : ℤ, discrete_gaussian σ μ n) = 1 := by
   unfold discrete_gaussian
   rw [tsum_div_const]
-  rw [div_eq_one_iff_eq]
-  apply sum_gauss_term_ne_zero h
+  simpa using div_self (sum_gauss_term_ne_zero h μ)
 
 
 /--
@@ -342,12 +367,11 @@ Discrete Gaussian cast to ENNReal has sum 1
 -/
 def discrete_gaussian_normal {σ : ℝ} (h : σ ≠ 0) (μ : ℝ) : HasSum (fun z : ℤ => ENNReal.ofReal (discrete_gaussian σ μ z)) 1 := by
   rw [Summable.hasSum_iff ENNReal.summable]
-  rw [<- ENNReal.ofReal_tsum_of_nonneg]
+  rw [← ENNReal.ofReal_tsum_of_nonneg]
   case hf_nonneg =>
     exact fun n => discrete_gaussian_nonneg h μ n
   case hf =>
-    apply discrete_gaussian_summable'
-    apply h
+    exact discrete_gaussian_summable' h μ
   simp [discrete_gaussian_normalizes h μ]
 
 /--

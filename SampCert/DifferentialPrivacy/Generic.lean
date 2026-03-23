@@ -99,25 +99,44 @@ def privConst (u : U) : Mechanism T U := fun _ => PMF.pure u
 --
 lemma compose_sum_rw (nq1 : U -> ENNReal) (nq2 : V -> ENNReal) (b : U) (c : V) :
   (∑' (a : U), nq1 a * ∑' (a_1 : V), if b = a ∧ c = a_1 then nq2 a_1 else 0) = nq1 b * nq2 c := by
-  have A : ∀ a : U, ∀ b : U, (∑' (a_1 : V), if b = a ∧ c = a_1 then nq2 a_1 else 0) = if b = a then (∑' (a_1 : V), if c = a_1 then nq2 a_1 else 0) else 0 := by
-    intro x  y
+  have hA :
+      ∀ a : U,
+        (∑' (a_1 : V), if b = a ∧ c = a_1 then nq2 a_1 else 0) =
+          if b = a then (∑' (a_1 : V), if c = a_1 then nq2 a_1 else 0) else 0 := by
+    intro a
     split
     · rename_i h
       subst h
       simp
     · rename_i h
-      simp
-      intro h
-      contradiction
-  conv =>
-    left
-    right
+      simp [h]
+  have hOuter :
+      (∑' (a : U), nq1 a * ∑' (a_1 : V), if b = a ∧ c = a_1 then nq2 a_1 else 0) =
+        ∑' (a : U), nq1 a * (if b = a then (∑' (a_1 : V), if c = a_1 then nq2 a_1 else 0) else 0) := by
+    apply tsum_congr
     intro a
-    right
-    rw [A]
-  rw [ENNReal.tsum_eq_add_tsum_ite b]
-  simp
-  have B : ∀ x : U, (if x = b then 0 else if b = x then nq1 x * ∑' (a_1 : V), if c = a_1 then nq2 a_1 else 0 else 0) = 0 := by
+    rw [hA]
+  rw [hOuter]
+  have hB :
+      ∀ a : U,
+        nq1 a * (if b = a then (∑' (a_1 : V), if c = a_1 then nq2 a_1 else 0) else 0) =
+          if b = a then nq1 b * (∑' (a_1 : V), if c = a_1 then nq2 a_1 else 0) else 0 := by
+    intro a
+    split
+    · rename_i h
+      subst h
+      simp
+    · simp [*]
+  have hOuter' :
+      (∑' (a : U), nq1 a * (if b = a then (∑' (a_1 : V), if c = a_1 then nq2 a_1 else 0) else 0)) =
+        ∑' (a : U), if b = a then nq1 b * (∑' (a_1 : V), if c = a_1 then nq2 a_1 else 0) else 0 := by
+    apply tsum_congr
+    intro a
+    rw [hB]
+  rw [hOuter', ENNReal.tsum_eq_add_tsum_ite b]
+  have hTailU :
+      ∀ x : U,
+        (if x = b then 0 else if b = x then nq1 b * (∑' (a_1 : V), if c = a_1 then nq2 a_1 else 0) else 0) = 0 := by
     intro x
     split
     · simp
@@ -126,17 +145,16 @@ lemma compose_sum_rw (nq1 : U -> ENNReal) (nq2 : V -> ENNReal) (b : U) (c : V) :
         subst h2
         contradiction
       · simp
-  conv =>
-    left
-    right
-    right
+  have hTailUSum :
+      (∑' (x : U), if x = b then 0 else if b = x then nq1 b * (∑' (a_1 : V), if c = a_1 then nq2 a_1 else 0) else 0) = 0 := by
+    rw [ENNReal.tsum_eq_zero]
     intro x
-    rw [B]
-  simp
+    exact hTailU x
+  simp [hTailUSum]
   congr 1
   rw [ENNReal.tsum_eq_add_tsum_ite c]
   simp
-  have C :∀ x : V,  (if x = c then 0 else if c = x then nq2 x else 0) = 0 := by
+  have hC : ∀ x : V, (if x = c then 0 else if c = x then nq2 x else 0) = 0 := by
     intro x
     split
     · simp
@@ -145,12 +163,12 @@ lemma compose_sum_rw (nq1 : U -> ENNReal) (nq2 : V -> ENNReal) (b : U) (c : V) :
         subst h2
         contradiction
       · simp
-  conv =>
-    left
-    right
-    right
-    intro X
-    rw [C]
+  have hInner :
+      (∑' (x : V), if x = c then 0 else if c = x then nq2 x else 0) = ∑' (x : V), 0 := by
+    apply tsum_congr
+    intro x
+    rw [hC]
+  rw [hInner]
   simp
 
 
@@ -159,16 +177,8 @@ Partition series into fibers. `g` maps an element to its fiber.
 -/
 theorem ENNReal.HasSum_fiberwise {f : T → ENNReal} {a : ENNReal} (hf : HasSum f a) (g : T → V) :
     HasSum (fun c : V ↦ ∑' b : g ⁻¹' {c}, f b) a := by
-  let A := (Equiv.sigmaFiberEquiv g)
-  have B := @Equiv.hasSum_iff ENNReal T ((y : V) × { x // g x = y }) _ _ f a A
-  replace B := B.2 hf
-  have C := @HasSum.sigma ENNReal V _ _ _ _ (fun y : V => { x // g x = y }) (f ∘ ⇑(Equiv.sigmaFiberEquiv g)) (fun c => ∑' (b : ↑(g ⁻¹' {c})), f ↑b) a B
-  apply C
-  intro b
-  have F := @Summable.hasSum_iff ENNReal _ _ _ (fun c => (f ∘ ⇑(Equiv.sigmaFiberEquiv g)) { fst := b, snd := c }) ((fun c => ∑' (b : ↑(g ⁻¹' {c})), f ↑b) b) _
-  apply (F _).2
-  · rfl
-  · apply ENNReal.summable
+  apply (ENNReal.summable).hasSum_iff.2
+  rw [_root_.ENNReal.tsum_fiberwise, hf.tsum_eq]
 
 /--
 Partition series into fibers. `g` maps an element to its fiber.
@@ -176,10 +186,7 @@ Partition series into fibers. `g` maps an element to its fiber.
 theorem ENNReal.tsum_fiberwise (p : T → ENNReal) (f : T → V) :
   ∑' (x : V), ∑' (b : (f ⁻¹' {x})), p b
     = ∑' i : T, p i := by
-  apply HasSum.tsum_eq
-  apply ENNReal.HasSum_fiberwise
-  apply Summable.hasSum
-  exact ENNReal.summable
+  simpa using (_root_.ENNReal.tsum_fiberwise p f)
 
 /--
 Rewrite a series into a sum over fibers. `f` maps an element into its fiber.
@@ -195,19 +202,13 @@ theorem fiberwisation (p : T → ENNReal) (f : T → V) :
     simp
     intro y
     exact eq_comm
-  conv =>
-    left
-    right
-    intro x
-    rw [A]
-  clear A
   apply tsum_congr
-  intro b
-  split
-  · rename_i h'
-    rw [h']
-    simp only [tsum_empty]
-  · simp
+  intro x
+  rw [A x]
+  by_cases h : {a : T | x = f a} = {}
+  · rw [h]
+    simp
+  · simp [h]
 
 lemma condition_to_subset (f : U → V) (g : U → ENNReal) (x : V) :
   (∑' a : U, if x = f a then g a else 0) = ∑' a : { a | x = f a }, g a := by

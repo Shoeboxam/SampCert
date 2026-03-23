@@ -20,8 +20,6 @@ noncomputable section
 namespace SLang
 
 variable {T : Type}
-variable [dps : DPSystem T]
-variable [HT : Inhabited T]
 
 variable (numBins : ℕ+)
 variable (B : Bins T numBins)
@@ -58,7 +56,7 @@ theorem exactBinCount_sensitivity (b : Fin numBins) : sensitivity (exactBinCount
 /--
 DP bound for a noised bin count
 -/
-lemma privNoisedBinCount_DP (ε₁ ε₂ : ℕ+) (b : Fin numBins) :
+lemma privNoisedBinCount_DP [dps : DPSystem T] (ε₁ ε₂ : ℕ+) (b : Fin numBins) :
   dps.prop (privNoisedBinCount numBins B ε₁ ε₂ b) (ε₁ / ((ε₂ * numBins : PNat))) := by
   unfold privNoisedBinCount
   apply dps.noise_prop
@@ -69,11 +67,11 @@ lemma privNoisedBinCount_DP (ε₁ ε₂ : ℕ+) (b : Fin numBins) :
 /--
 DP bound for intermediate steps in the histogram calculation.
 -/
-lemma privNoisedHistogramAux_DP (ε₁ ε₂ : ℕ+) (n : ℕ) (Hn : n < numBins) :
+lemma privNoisedHistogramAux_DP [dps : DPSystem T] (ε₁ ε₂ : ℕ+) (n : ℕ) (Hn : n < numBins) :
   dps.prop (privNoisedHistogramAux numBins B ε₁ ε₂ n Hn) (n.succ * (ε₁ / (ε₂ * numBins : PNat))) := by
   induction n
   · unfold privNoisedHistogramAux
-    simp only [Nat.cast_zero, succ_eq_add_one, zero_add, Nat.cast_one, Nat.cast_mul, one_mul]
+    simp only [succ_eq_add_one, zero_add, Nat.cast_one, one_mul]
     refine DPSystem.postprocess_prop
              (privCompose (privNoisedBinCount numBins B ε₁ ε₂ 0) (privConst (emptyHistogram numBins B)))
              (↑↑ε₁ / ↑↑(ε₂ * numBins)) ?G1
@@ -90,18 +88,20 @@ lemma privNoisedHistogramAux_DP (ε₁ ε₂ : ℕ+) (n : ℕ) (Hn : n < numBins
   · rename_i n IH
     unfold privNoisedHistogramAux
     simp only []
+    have Hn' : n < numBins := Nat.lt_of_succ_lt Hn
+    let b : Fin numBins := ⟨n + 1, Hn⟩
     refine DPSystem.postprocess_prop
-      (privCompose (privNoisedBinCount numBins B ε₁ ε₂ ↑(n + 1))
-      (privNoisedHistogramAux numBins B ε₁ ε₂ n (privNoisedHistogramAux.proof_2 numBins n Hn)))
+      (privCompose (privNoisedBinCount numBins B ε₁ ε₂ b)
+      (privNoisedHistogramAux numBins B ε₁ ε₂ n Hn'))
       (↑(n + 1).succ * (↑↑ε₁ / ↑↑(ε₂ * numBins))) ?succ.a
     apply (@DPSystem_prop_ext _ _ _ (?C1 + ?C2) _ _ ?HCeq ?Hdp)
     case Hdp =>
       refine
         (DPSystem.compose_prop
-          (privNoisedBinCount numBins B ε₁ ε₂ ↑(n + 1))
-          (privNoisedHistogramAux numBins B ε₁ ε₂ n _) (↑↑ε₁ / ↑↑(ε₂ * numBins)) (↑n.succ * (↑↑ε₁ / ↑↑(ε₂ * numBins))) ?X ?Y)
-      case X => exact privNoisedBinCount_DP numBins B ε₁ ε₂ ↑(n + 1)
-      case Y => apply IH
+          (privNoisedBinCount numBins B ε₁ ε₂ b)
+          (privNoisedHistogramAux numBins B ε₁ ε₂ n Hn') (↑↑ε₁ / ↑↑(ε₂ * numBins)) (↑n.succ * (↑↑ε₁ / ↑↑(ε₂ * numBins))) ?X ?Y)
+      case X => exact privNoisedBinCount_DP numBins B ε₁ ε₂ b
+      case Y => simpa [Hn'] using IH
     generalize (ε₁.val.cast / (ε₂ * numBins).val.cast : NNReal) = A
     conv =>
       enter [1, 1]
@@ -114,43 +114,43 @@ lemma privNoisedHistogramAux_DP (ε₁ ε₂ : ℕ+) (n : ℕ) (Hn : n < numBins
 /--
 DP bound for a noised histogram
 -/
-lemma privNoisedHistogram_DP (ε₁ ε₂ : ℕ+) :
+lemma privNoisedHistogram_DP [dps : DPSystem T] (ε₁ ε₂ : ℕ+) :
   dps.prop (privNoisedHistogram numBins B ε₁ ε₂) (ε₁ / ε₂) := by
   unfold privNoisedHistogram
   apply (DPSystem_prop_ext _ ?HEq ?Hdp)
   case Hdp => apply privNoisedHistogramAux_DP
   case HEq =>
-    simp
-    rw [division_def]
-    rw [division_def]
-    rw [mul_inv]
-    conv =>
-      enter [1, 2]
-      rw [<- mul_assoc]
-      rw [mul_comm]
-    generalize (ε₁.val.cast * ε₂.val.cast⁻¹ : NNReal)  = A
-    rw [<- mul_assoc]
-    conv =>
-      enter [2]
-      rw [Eq.symm (one_mul A)]
-    congr
-    unfold predBins
-    cases numBins
-    rename_i n' Hn'
-    simp only [PNat.natPred_eq_pred, pred_eq_sub_one, cast_tsub, Nat.cast_one, PNat.mk_coe]
-    rw [tsub_add_eq_max]
-    rw [max_eq_left (one_le_cast.mpr Hn')]
-    apply mul_inv_cancel
-    intro HK
-    simp_all
-    rw [HK] at Hn'
-    cases Hn'
+    simp [division_def]
+    have hpred : (↑(predBins numBins) + 1 : NNReal) = numBins := by
+      unfold predBins
+      cases numBins
+      rename_i n' Hn'
+      simp only [PNat.natPred_eq_pred, pred_eq_sub_one, cast_tsub, Nat.cast_one, PNat.mk_coe]
+      rw [tsub_add_eq_max]
+      exact max_eq_left (one_le_cast.mpr Hn')
+    have hnum_ne : (numBins : NNReal) ≠ 0 := by
+      exact ne_of_gt (by exact_mod_cast numBins.pos)
+    have hε_ne : (ε₂ : NNReal) ≠ 0 := by
+      exact ne_of_gt (by exact_mod_cast ε₂.pos)
+    have hmain : (numBins : NNReal) * ((ε₂ : NNReal) * (numBins : NNReal))⁻¹ = (ε₂ : NNReal)⁻¹ := by
+      apply mul_right_injective₀ hε_ne
+      calc
+        (ε₂ : NNReal) * ((numBins : NNReal) * ((ε₂ : NNReal) * (numBins : NNReal))⁻¹)
+          = ((ε₂ : NNReal) * (numBins : NNReal)) * ((ε₂ : NNReal) * (numBins : NNReal))⁻¹ := by
+              ac_rfl
+        _ = 1 := by rw [mul_inv_cancel₀ (mul_ne_zero hε_ne hnum_ne)]
+        _ = (ε₂ : NNReal) * (ε₂ : NNReal)⁻¹ := by rw [mul_inv_cancel₀ hε_ne]
+    calc
+      (↑(predBins numBins) + 1) * (↑↑ε₁ * (↑↑ε₂ * ↑↑numBins)⁻¹)
+        = (numBins : NNReal) * (↑↑ε₁ * (↑↑ε₂ * ↑↑numBins)⁻¹) := by rw [hpred]
+      _ = ↑↑ε₁ * ((numBins : NNReal) * (↑↑ε₂ * ↑↑numBins)⁻¹) := by ac_rfl
+      _ = ↑↑ε₁ * (↑↑ε₂)⁻¹ := by rw [hmain]
 
 
 /--
 DP bound for the thresholding maximum
 -/
-lemma privMaxBinAboveThreshold_DP (ε₁ ε₂ : ℕ+) (τ : ℤ) :
+lemma privMaxBinAboveThreshold_DP [dps : DPSystem T] (ε₁ ε₂ : ℕ+) (τ : ℤ) :
   dps.prop (privMaxBinAboveThreshold numBins B ε₁ ε₂ τ) (ε₁ / ε₂) := by
   rw [privMaxBinAboveThreshold]
   apply dps.postprocess_prop

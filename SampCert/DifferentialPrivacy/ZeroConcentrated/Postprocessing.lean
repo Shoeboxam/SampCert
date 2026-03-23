@@ -19,19 +19,14 @@ open Classical Nat Int Real ENNReal MeasureTheory Measure
 namespace SLang
 
 variable {T : Type}
-variable [t1 : MeasurableSpace T]
-variable [t2 : MeasurableSingletonClass T]
-
 variable {U V : Type}
-variable [m2 : MeasurableSpace U]
-variable [count : Countable U]
-variable [disc : DiscreteMeasurableSpace U]
-variable [Inhabited U]
 
 /--
 privPostProcess preserves absolute continuity between neighbours
 -/
-def privPostProcess_AC {f : U -> V} (nq : Mechanism T U) (Hac : ACNeighbour nq) : ACNeighbour (privPostProcess nq f) := by
+def privPostProcess_AC [MeasurableSpace T] [MeasurableSingletonClass T]
+    [MeasurableSpace U] [Countable U] [DiscreteMeasurableSpace U] [Inhabited U]
+    {f : U -> V} (nq : Mechanism T U) (Hac : ACNeighbour nq) : ACNeighbour (privPostProcess nq f) := by
   rw [ACNeighbour] at *
   unfold AbsCts at *
   intro l₁ l₂ Hn v
@@ -45,10 +40,12 @@ def privPostProcess_AC {f : U -> V} (nq : Mechanism T U) (Hac : ACNeighbour nq) 
 /--
 Normalized fiber
 -/
-def δ (nq : SLang U) (f : U → V) (a : V)  : {n : U | a = f n} → ENNReal :=
+def δ [MeasurableSpace U] [Countable U] [DiscreteMeasurableSpace U] [Inhabited U]
+    (nq : SLang U) (f : U → V) (a : V)  : {n : U | a = f n} → ENNReal :=
   fun x : {n : U | a = f n} => nq x * (∑' (x : {n | a = f n}), nq x)⁻¹
 
-lemma δ_normalizes (nq : SLang U) (f : U → V) (a : V) (h1 : ∑' (i : ↑{n | a = f n}), nq ↑i ≠ 0) (h2 : ∑' (i : ↑{n | a = f n}), nq ↑i ≠ ⊤) :
+lemma δ_normalizes [MeasurableSpace U] [Countable U] [DiscreteMeasurableSpace U] [Inhabited U]
+    (nq : SLang U) (f : U → V) (a : V) (h1 : ∑' (i : ↑{n | a = f n}), nq ↑i ≠ 0) (h2 : ∑' (i : ↑{n | a = f n}), nq ↑i ≠ ⊤) :
   HasSum (δ nq f a) 1 := by
   rw [Summable.hasSum_iff ENNReal.summable]
   unfold δ
@@ -58,10 +55,12 @@ lemma δ_normalizes (nq : SLang U) (f : U → V) (a : V) (h1 : ∑' (i : ↑{n |
 /--
 Normalized fiber distribution
 -/
-def δpmf (nq : SLang U) (f : U → V) (a : V) (h1 : ∑' (i : ↑{n | a = f n}), nq ↑i ≠ 0) (h2 : ∑' (i : ↑{n | a = f n}), nq ↑i ≠ ⊤) : PMF {n : U | a = f n} :=
+def δpmf [MeasurableSpace U] [Countable U] [DiscreteMeasurableSpace U] [Inhabited U]
+    (nq : SLang U) (f : U → V) (a : V) (h1 : ∑' (i : ↑{n | a = f n}), nq ↑i ≠ 0) (h2 : ∑' (i : ↑{n | a = f n}), nq ↑i ≠ ⊤) : PMF {n : U | a = f n} :=
   ⟨ δ nq f a , δ_normalizes nq f a h1 h2 ⟩
 
-theorem δpmf_conv (nq : SLang U) (a : V) (x : {n | a = f n}) (h1 : ∑' (i : ↑{n | a = f n}), nq ↑i ≠ 0) (h2 : ∑' (i : ↑{n | a = f n}), nq ↑i ≠ ⊤) :
+theorem δpmf_conv [MeasurableSpace U] [Countable U] [DiscreteMeasurableSpace U] [Inhabited U]
+    (nq : SLang U) (a : V) (x : {n | a = f n}) (h1 : ∑' (i : ↑{n | a = f n}), nq ↑i ≠ 0) (h2 : ∑' (i : ↑{n | a = f n}), nq ↑i ≠ ⊤) :
   nq x * (∑' (x : {n | a = f n}), nq x)⁻¹ = (δpmf nq f a h1 h2) x := by
   simp [δpmf]
   conv =>
@@ -70,12 +69,14 @@ theorem δpmf_conv (nq : SLang U) (a : V) (x : {n | a = f n}) (h1 : ∑' (i : �
     left
   rfl
 
-theorem δpmf_conv' (nq : SLang U) (f : U → V) (a : V) (h1 : ∑' (i : ↑{n | a = f n}), nq ↑i ≠ 0) (h2 : ∑' (i : ↑{n | a = f n}), nq ↑i ≠ ⊤) :
+theorem δpmf_conv' [MeasurableSpace U] [Countable U] [DiscreteMeasurableSpace U] [Inhabited U]
+    (nq : SLang U) (f : U → V) (a : V) (h1 : ∑' (i : ↑{n | a = f n}), nq ↑i ≠ 0) (h2 : ∑' (i : ↑{n | a = f n}), nq ↑i ≠ ⊤) :
   (fun x : {n | a = f n} => nq x * (∑' (x : {n | a = f n}), nq x)⁻¹) = (δpmf nq f a h1 h2) := by
   ext x
   rw [δpmf_conv]
 
-theorem witness {f : U → V} {i : V} (h : ¬{b | i = f b} = ∅) :
+theorem witness [MeasurableSpace U] [Countable U] [DiscreteMeasurableSpace U] [Inhabited U]
+    {f : U → V} {i : V} (h : ¬{b | i = f b} = ∅) :
   ∃ x : U, i = f x := by
   rw [← nonempty_subtype]
   exact Set.nonempty_iff_ne_empty'.mpr h
@@ -90,35 +91,25 @@ theorem norm_simplify (x : ENNReal) (h : x ≠ ⊤) :
     rfl
 
 
-theorem convergent_subset {p : T → ENNReal} (f : T → V) (conv : ∑' (x : T), p x ≠ ⊤) :
+theorem convergent_subset [MeasurableSpace T] [MeasurableSingletonClass T]
+    {p : T → ENNReal} (f : T → V) (conv : ∑' (x : T), p x ≠ ⊤) :
   ∑' (x : { y : T| x = f y }), p x ≠ ⊤ := by
   rw [← condition_to_subset]
   have A : (∑' (y : T), if x = f y  then p y else 0) ≤ ∑' (x : T), p x := by
-    apply tsum_le_tsum
-    · intro i
-      split
-      · trivial
-      · simp only [_root_.zero_le]
-    · exact ENNReal.summable
-    · exact ENNReal.summable
+    exact ENNReal.tsum_le_tsum fun i => by
+      split <;> simp
   rw [← lt_top_iff_ne_top]
   apply lt_of_le_of_lt A
   rw [lt_top_iff_ne_top]
   trivial
 
-theorem ENNReal.tsum_pos {f : T → ENNReal} (h1 : ∑' x : T, f x ≠ ⊤) (h2 : ∀ x : T, f x ≠ 0) (i : T) :
+theorem ENNReal.tsum_pos [MeasurableSpace T] [MeasurableSingletonClass T]
+    {f : T → ENNReal} (h1 : ∑' x : T, f x ≠ ⊤) (h2 : ∀ x : T, f x ≠ 0) (i : T) :
   0 < ∑' x : T, f x := by
   apply (toNNReal_lt_toNNReal ENNReal.zero_ne_top h1).mp
-  simp only [zero_toNNReal]
+  simp only [ENNReal.toNNReal_zero]
   rw [ENNReal.tsum_toNNReal_eq (ENNReal.ne_top_of_tsum_ne_top h1)]
-  have S : Summable fun a => (f a).toNNReal := by
-    rw [← tsum_coe_ne_top_iff_summable]
-    conv =>
-      left
-      right
-      intro b
-      rw [ENNReal.coe_toNNReal (ENNReal.ne_top_of_tsum_ne_top h1 b)]
-    trivial
+  have S : Summable fun a => (f a).toNNReal := ENNReal.summable_toNNReal_of_tsum_ne_top h1
   have B:= @NNReal.tsum_pos T (fun (a : T) => (f a).toNNReal) S i
   apply B
   apply ENNReal.toNNReal_pos (h2 i) (ENNReal.ne_top_of_tsum_ne_top h1 i)
@@ -146,14 +137,15 @@ lemma rpow_nonzero (x : ENNReal) (y : ℝ) (H : ¬(x = 0 ∧ 0 < y ∨ x = ⊤ �
 /--
 Jensen's inequality for privPostProcess, restructed to types where ``nq l₁`` is nonzero
 -/
-theorem privPostPocess_DP_pre_reduct {U : Type} [m2 : MeasurableSpace U] [count : Countable U] [disc : DiscreteMeasurableSpace U] [Inhabited U]
+theorem privPostPocess_DP_pre_reduct {U : Type} [MeasurableSpace T] [MeasurableSingletonClass T]
+  [MeasurableSpace U] [Countable U] [DiscreteMeasurableSpace U] [Inhabited U]
   {nq : List T → SLang U}
   (f : U → V) {α : ℝ} (h1 : 1 < α) {l₁ l₂ : List T}
   (HNorm1 : HasSum (nq l₁) 1)
   (HNorm2 : HasSum (nq l₂) 1)
   (Habs : AbsCts (nq l₁) (nq l₂))
   (Hnq2 : ∀ (u : U), nq l₁ u ≠ 0)
-  (h2 : Neighbour l₁ l₂) :
+  (_h2 : Neighbour l₁ l₂) :
   (∑' (x : V), (∑' (a : U), if x = f a then nq l₁ a else 0) ^ α * (∑' (a : U), if x = f a then nq l₂ a else 0) ^ (1 - α)) ≤ (∑' (x : U), nq l₁ x ^ α * nq l₂ x ^ (1 - α)) := by
 
   -- By absolute continuity, nq1 is nonzero
@@ -222,22 +214,16 @@ theorem privPostPocess_DP_pre_reduct {U : Type} [m2 : MeasurableSpace U] [count 
     simp [AbsCts]
     rw [δF₁_Eq]
     rw [δF₂_Eq]
-    intro a b
-    repeat rw [δpmf]
-    unfold δ
-    simp
-    rw [DFunLike.coe]
-    simp [PMF.instFunLike]
-    intro H
-    cases H
+    intro a b H
+    change nq l₁ a * (∑' (x : {x // i = f x}), nq l₁ ↑x)⁻¹ = 0
+    change nq l₂ a * (∑' (x : {x // i = f x}), nq l₂ ↑x)⁻¹ = 0 at H
+    rw [_root_.mul_eq_zero, ENNReal.inv_eq_zero] at H
+    rcases H with Hl2z | Htop
     · rename_i Hl2z
-      left
-      apply Habs
-      apply Hl2z
+      rw [Habs a Hl2z, zero_mul]
     · exfalso
       apply nq_restriction_nts2
-      simp
-      assumption
+      exact Htop
 
   have δF₂_NT (x : { x // i = f x }) : δF₂ x ≠ ⊤ := by
     rw [δF₂_Eq]
@@ -451,7 +437,9 @@ Jensen's inequality for privPostProcess.
 Implementation note: This reduction only works because neighbours are symmetric. A different reduction may
 be able to relax this requirement.
 -/
-theorem privPostPocess_DP_pre {nq : List T → PMF U} (HNorm : ∀ l, HasSum (nq l) 1)
+theorem privPostPocess_DP_pre [MeasurableSpace T] [MeasurableSingletonClass T]
+  [MeasurableSpace U] [Countable U] [DiscreteMeasurableSpace U] [Inhabited U]
+  {nq : List T → PMF U} (HNorm : ∀ l, HasSum (nq l) 1)
   (f : U → V) {α : ℝ} (h1 : 1 < α) {l₁ l₂ : List T} (HN : Neighbour l₁ l₂)
   (Habs : AbsCts (nq l₁) (nq l₂)) (Habs' : AbsCts (nq l₂) (nq l₁)) :
   (∑' (x : V),
@@ -489,13 +477,17 @@ theorem privPostPocess_DP_pre {nq : List T → PMF U} (HNorm : ∀ l, HasSum (nq
 
   cases (Classical.em (∃ x : U, ¬ nq l₁ x = 0))
   · rename_i x_witness
-    have HR := @privPostPocess_DP_pre_reduct T V {x // ¬ nq l₁ x = 0}
-                 _ _ _ ?TC
-                 (fun t u => nq t u) (fun x => f x) α h1
-                 l₁ l₂ ?GNorm1 ?GNorm2 ?Gac ?Gnz HN
-    case TC =>
-      apply inhabited_of_nonempty
-      exact Set.Nonempty.to_subtype x_witness
+    letI : Inhabited {x // ¬ nq l₁ x = 0} := inhabited_of_nonempty (Set.Nonempty.to_subtype x_witness)
+    have HR :=
+      privPostPocess_DP_pre_reduct
+        (U := {x // ¬ nq l₁ x = 0})
+        (nq := fun t u => nq t u)
+        (f := fun x => f x)
+        (α := α)
+        h1
+        (l₁ := l₁)
+        (l₂ := l₂)
+        ?GNorm1 ?GNorm2 ?Gac ?Gnz HN
     case GNorm1 =>
       simp
       rw [<- HasSum.tsum_eq (HNorm l₁)]
@@ -529,22 +521,18 @@ theorem privPostPocess_DP_pre {nq : List T → PMF U} (HNorm : ∀ l, HasSum (nq
     simp at *
     have Hempty : IsEmpty {x // ¬nq l₁ x = 0} := by
       exact Subtype.isEmpty_of_false fun a a_1 => a_1 (x_empty a)
-    rw [@tsum_empty _ _ _ _ _ Hempty]
-    conv =>
-      lhs
-      arg 1
-      intro
-      rw [@tsum_empty _ _ _ _ _ Hempty]
-      rw [@tsum_empty _ _ _ _ _ Hempty]
+    letI := Hempty
     simp
-    intro
+    right
     left
     linarith
 
 /--
 privPostProcess satisfies the zCDP bound
 -/
-theorem privPostProcess_zCDPBound {nq : Mechanism T U} {ε : ℝ}
+theorem privPostProcess_zCDPBound [MeasurableSpace T] [MeasurableSingletonClass T]
+  [MeasurableSpace U] [Countable U] [DiscreteMeasurableSpace U] [Inhabited U]
+  {nq : Mechanism T U} {ε : ℝ}
   (h : zCDPBound nq ε) (f : U → V) (Hac : ACNeighbour nq) :
   zCDPBound (privPostProcess nq f) ε := by
   simp [privPostProcess, zCDPBound, RenyiDivergence]
@@ -575,21 +563,66 @@ theorem privPostProcess_zCDPBound {nq : Mechanism T U} {ε : ℝ}
     apply inv_nonneg_of_nonneg
     linarith
   apply elog_mono_le.mp
-  simp [PMF.bind, PMF.pure]
-  simp [PMF.instFunLike]
-  apply privPostPocess_DP_pre
-  · exact fun l => PMF.hasSum_coe_one (nq l)
-  · exact h1
-  · exact h2
-  · exact Hac l₁ l₂ h2
-  · apply Hac l₂ l₁
-    exact Neighbour_symm l₁ l₂ h2
+  -- TODO: is there a simpler approach?
+  have hbind1 (x : V) :
+      (((nq l₁).bind fun A => PMF.pure (f A) : PMF V) : V → ENNReal) x =
+        ∑' (a : U), if x = f a then (nq l₁) a else 0 := by
+    rw [PMF.bind_apply]
+    congr with a
+    rw [PMF.pure_apply]
+    split <;> simp [*]
+  have hbind2 (x : V) :
+      (((nq l₂).bind fun A => PMF.pure (f A) : PMF V) : V → ENNReal) x =
+        ∑' (a : U), if x = f a then (nq l₂) a else 0 := by
+    rw [PMF.bind_apply]
+    congr with a
+    rw [PMF.pure_apply]
+    split <;> simp [*]
+  have hbind1g :
+      (fun x : V => (((nq l₁).bind fun A => PMF.pure (f A) : PMF V) : V → ENNReal) x) =
+        fun x : V => ∑' (a : U), if x = f a then (nq l₁) a else 0 := by
+    funext x
+    exact hbind1 x
+  have hbind2g :
+      (fun x : V => (((nq l₂).bind fun A => PMF.pure (f A) : PMF V) : V → ENNReal) x) =
+        fun x : V => ∑' (a : U), if x = f a then (nq l₂) a else 0 := by
+    funext x
+    exact hbind2 x
+  convert
+    (privPostPocess_DP_pre
+      (nq := nq)
+      (HNorm := fun l => PMF.hasSum_coe_one (nq l))
+      (f := f)
+      (α := α)
+      h1
+      (l₁ := l₁)
+      (l₂ := l₂)
+      h2
+      (Hac l₁ l₂ h2)
+      (Hac l₂ l₁ (Neighbour_symm l₁ l₂ h2))) using 1
+  · congr with x
+    have hx1 :
+        (((nq l₁).bind fun A => PMF.pure (f A) : PMF V) : V → ENNReal) x =
+          ∑' (a : U), if x = f a then (nq l₁) a else 0 := hbind1 x
+    have hx2 :
+        (((nq l₂).bind fun A => PMF.pure (f A) : PMF V) : V → ENNReal) x =
+          ∑' (a : U), if x = f a then (nq l₂) a else 0 := hbind2 x
+    calc
+      ((((nq l₁).bind fun A => PMF.pure (f A) : PMF V) : V → ENNReal) x) ^ α *
+          ((((nq l₂).bind fun A => PMF.pure (f A) : PMF V) : V → ENNReal) x) ^ (1 - α)
+        = (∑' (a : U), if x = f a then (nq l₁) a else 0) ^ α *
+            ((((nq l₂).bind fun A => PMF.pure (f A) : PMF V) : V → ENNReal) x) ^ (1 - α) := by
+            rw [hx1]
+      _ = (∑' (a : U), if x = f a then (nq l₁) a else 0) ^ α *
+            (∑' (a : U), if x = f a then (nq l₂) a else 0) ^ (1 - α) := by
+            rw [hx2]
 
 
 /--
 Postprocessing preserves zCDP
 -/
-theorem privPostProcess_zCDP {f : U → V}
+theorem privPostProcess_zCDP [MeasurableSpace T] [MeasurableSingletonClass T]
+  [MeasurableSpace U] [Countable U] [DiscreteMeasurableSpace U] [Inhabited U] {f : U → V}
   (nq : Mechanism T U) (ε : NNReal) (h : zCDP nq ε) :
   zCDP (privPostProcess nq f) ε := by
   rcases h with ⟨ Hac1, Hb1 ⟩
