@@ -86,8 +86,8 @@ lemma ApproximateDP_of_zCDP_pos_lt_one [Countable U] (m : Mechanism T U)
   have Hε : 0 ≤ ε := by exact le_of_lt Hε_pos
   intro δ Hδ0 Hδ1
   generalize Dε' : (ε^2/2 + ε * (2*Real.log (1/δ))^(1/2 : ℝ)) = ε'
-  simp [zCDPBound] at h
-  simp [DP']
+  rw [zCDPBound] at h
+  rw [DP']
   have Hε' : 0 ≤ ε' := by
     rw [<- Dε']
     apply add_nonneg
@@ -471,7 +471,8 @@ lemma ApproximateDP_of_zCDP_pos_lt_one [Countable U] (m : Mechanism T U)
       simp
 
     -- Apply Renyi divergence inequality
-    have h := h α Hα l₁ l₂ neighs
+    have h := by
+      simpa [one_div] using h α Hα l₁ l₂ neighs
     rw [RenyiDivergence] at h
     apply (le_trans _ HαSpecial)
 
@@ -1101,7 +1102,7 @@ lemma A_expectation (x : U) (Hε : 0 < ε)
     rw [ENNReal.toReal_mul, ENNReal.toReal_sub_of_le hEDle hDtop]
   rw [hright_real]
   simp [hCE', hCD']
-  nlinarith [hED', hCE', hCD']
+  linarith [hED', hCE', hCD']
 
 
 
@@ -1523,19 +1524,10 @@ lemma lemma_sinh_sub (_Hy : 0 ≤ y) (_Hyx : y < x) : Real.sinh (x - y) = (C x y
     _ = (Real.exp (x - y) - Real.exp (-(x-y))) / 2 := by
       rw [Real.sinh_eq]
     _ = ((Real.exp ((x - y) / 2) - (Real.exp (- ((x - y) / 2)))) * (Real.exp ((x - y) / 2) + (Real.exp (- ((x - y) / 2))))) / 2 := by
-      congr 1
+      have hxy : x - y = (x - y) / 2 + (x - y) / 2 := by ring
+      have hnegxy : -((x - y) / 2 + (x - y) / 2) = -((x - y) / 2) + -((x - y) / 2) := by ring
+      rw [hxy, Real.exp_add, hnegxy, Real.exp_add]
       ring_nf
-      simp
-      rw [← Real.exp_nsmul]
-      rw [← Real.exp_nsmul]
-      rw [nsmul_eq_mul]
-      simp
-      congr 2
-      · ring
-      ·
-        have : -x + y * ((1 : ℕ) : ℝ) = 2 * (x * (-1 / 2)) + 2 * (y * ((2⁻¹ : ℝ))) := by
-          ring
-        exact this
     _ = 2 * Real.sinh ((x - y) / 2) * Real.cosh ((x - y) / 2) := by
       rw [Real.sinh_eq]
       rw [Real.cosh_eq]
@@ -1952,21 +1944,21 @@ lemma lemma_step_3 (Hy : 0 ≤ y) (Hyx : y < x) (Hx : x ≤ 2) :
     apply mul_le_mul
     · have hcosh :
           Real.cosh (x * z / 4) ≤ Real.cosh (z / 2) := by
-        apply Real.cosh_le_cosh.mpr
-        apply abs_le_abs
-        · have hz0 : 0 ≤ z := by linarith
-          nlinarith
-        · apply (@le_trans _ _ _ 0)
-          · apply neg_nonneg.mp
-            simp
-            apply div_nonneg
-            · apply mul_nonneg
-              · linarith
-              · linarith
-            · simp
-          · linarith
+        have hx0 : 0 ≤ x := by linarith
+        have hxz4_nonneg : 0 ≤ x * z / 4 := by positivity
+        have hz2_nonneg : 0 ≤ z / 2 := by positivity
+        have hx_half : x / 2 ≤ 1 := by linarith
+        have hmul : x * z / 4 ≤ z / 2 := by
+          calc
+            x * z / 4 = (x / 2) * (z / 2) := by ring
+            _ ≤ 1 * (z / 2) := by
+              exact mul_le_mul_of_nonneg_right hx_half hz2_nonneg
+            _ = z / 2 := by ring
+        exact Real.cosh_strictMonoOn.monotoneOn hxz4_nonneg hz2_nonneg hmul
       have hsq : Real.cosh (x * z / 4) ^ 2 ≤ Real.cosh (z / 2) ^ 2 := by
-        nlinarith [Real.cosh_pos (x * z / 4), Real.cosh_pos (z / 2), hcosh]
+        have habs : |Real.cosh (x * z / 4)| ≤ |Real.cosh (z / 2)| := by
+          simpa [abs_of_nonneg (Real.cosh_pos _).le, abs_of_nonneg (Real.cosh_pos _).le] using hcosh
+        exact (sq_le_sq).2 habs
       have hsq_pos : 0 < Real.cosh (x * z / 4) ^ 2 := by
         exact sq_pos_of_pos (Real.cosh_pos _)
       exact one_div_le_one_div_of_le hsq_pos hsq
@@ -2042,12 +2034,13 @@ lemma ofDP_bound (ε : NNReal) (q' : List T -> PMF U) (H : SLang.PureDP q' ε) :
   apply ENNReal.ofEReal_le_mono
 
   -- Reduction to the nonzero case here
-  have K1 : Function.support (fun (x : U) => DFunLike.coe (q' l₁) x ) ⊆ { u : U | q' l₁ u ≠ 0 } := by simp [Function.support]
+  have K1 : Function.support (fun (x : U) => DFunLike.coe (q' l₁) x ) ⊆ { u : U | q' l₁ u ≠ 0 } := by
+    intro u hu
+    exact hu
   have Hp_pre := PMF.tsum_coe (q' l₁)
   rw [<- tsum_subtype_eq_of_support_subset K1 ] at Hp_pre
   simp only [Set.coe_setOf, Set.mem_setOf_eq] at Hp_pre
   have K2 : Function.support (fun (x : U) => DFunLike.coe (q' l₂) x ) ⊆ { u : U | q' l₁ u ≠ 0 } := by
-    simp [Function.support]
     intro a Ha Hk
     apply Ha
     apply (ACNeighbour_of_DP _ _ H _ _ (Neighbour_symm _ _ HN))
@@ -2076,10 +2069,12 @@ lemma ofDP_bound (ε : NNReal) (q' : List T -> PMF U) (H : SLang.PureDP q' ε) :
     rw [RenyiDivergence_def]
     congr 2
     have K3 : Function.support (fun (x : U) =>  DFunLike.coe (q' l₁) x ^ α * DFunLike.coe (q' l₂) x ^ (OfNat.ofNat 1 - α)) ⊆ { u : U | q' l₁ u ≠ 0 } := by
-      simp [Function.support]
-      intro u H1 _ _ _ H5
-      have H5 := H1 H5
-      linarith
+      intro u H1 H5
+      have hpow : (q' l₁) u ^ α = 0 := by
+        rw [H5, ENNReal.zero_rpow_of_pos]
+        linarith
+      apply H1
+      simp [hpow]
     rw [<- tsum_subtype_eq_of_support_subset K3]
     dsimp [p, q]
     rfl
@@ -2156,7 +2151,12 @@ lemma ofDP_bound (ε : NNReal) (q' : List T -> PMF U) (H : SLang.PureDP q' ε) :
   -- Next step won't work with ε=0, must separate the case.
   cases (Classical.em (ε = 0))
   · -- Follows from the DP bound
-    simp_all
+    rename_i hε0
+    subst hε0
+    simp at Hεα ⊢
+    have Hpq1 : ∀ (x : U'), p x / q x ≤ 1 := by
+      intro i
+      simpa using Hpq i
     rw [SLang.PureDP] at H
     apply SLang.event_to_singleton at H
     rw [SLang.DP_singleton] at H
@@ -2173,7 +2173,7 @@ lemma ofDP_bound (ε : NNReal) (q' : List T -> PMF U) (H : SLang.PureDP q' ε) :
         trivial
       case G2 => apply PMF.apply_ne_top
       apply ENNReal.rpow_le_rpow
-      · exact Hpq i
+      · exact Hpq1 i
       · linarith
     · simp
   rename_i Hε'
