@@ -4,6 +4,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Jean-Baptiste Tristan
 -/
 import SampCert.DifferentialPrivacy.Queries.BoundedMean.Basic
+import SampCert.DifferentialPrivacy.AdditiveNoise.Basic
+import SampCert.DifferentialPrivacy.AdditiveNoise.Regular
 import SampCert.DifferentialPrivacy.Queries.Histogram.Basic
 import SampCert.DifferentialPrivacy.ZeroConcentrated.System
 import SampCert.DifferentialPrivacy.Pure.System
