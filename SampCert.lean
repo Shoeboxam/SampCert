@@ -7,6 +7,8 @@ import SampCert.DifferentialPrivacy.Queries.BoundedMean.Basic
 import SampCert.DifferentialPrivacy.AdditiveNoise.Basic
 import SampCert.DifferentialPrivacy.AdditiveNoise.Regular
 import SampCert.DifferentialPrivacy.Queries.Histogram.Basic
+import SampCert.DifferentialPrivacy.Queries.ThresholdedKeyRelease
+import SampCert.DifferentialPrivacy.Queries.ThresholdedKeyReleaseUnknown
 import SampCert.DifferentialPrivacy.PermuteAndFlip.Basic
 import SampCert.DifferentialPrivacy.ZeroConcentrated.System
 import SampCert.DifferentialPrivacy.Pure.System
