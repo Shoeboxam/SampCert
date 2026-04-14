@@ -43,6 +43,7 @@ inductive Typ where
   | int
   | nat
   | pos
+  | seq (elem : Typ)
   | prod (left right : Typ)
   | dependent (e : Expression)
 
@@ -62,6 +63,7 @@ inductive Expression where
   | name (s: String)
   | unop (op : UnOp) (rhs : Expression)
   | binop (op : BinOp) (lhs rhs : Expression)
+  | index (base idx : Expression)
   | proj (name : Expression) (idx : Nat)
   | pair (left right : Expression)
   | monadic (name : String) (arg : List Expression)
@@ -87,6 +89,7 @@ def Typ.print (t : Typ): String :=
   | int => "int"
   | nat => "nat"
   | pos => "pos"
+  | seq elem => s!"seq<{elem.print}>"
   | prod t1 t2 => s!"({t1.print},{t2.print})"
   | dependent _ => "dependent"
 
@@ -139,6 +142,7 @@ partial def Expression.print (e : Expression) : String :=
   | unop op rhs => s!"{op.print} ({rhs.print})"
   | binop .pow lhs (.num 2) => s!"({lhs.print}) * ({lhs.print})"
   | binop op lhs rhs => s!"{lhs.print} {op.print} {rhs.print}"
+  | index base idx => s!"{base.print}[{idx.print}]"
   | proj id idx => s!"{id.print}.{idx-1}"
   | pair left right => s!"({left.print},{right.print})"
   | monadic n e => s!"{n}({join (e.map (·.print))})"
@@ -216,6 +220,10 @@ partial def Expression.map (transform : Expression → MetaM Expression) (e : Ex
     let lhs' ← lhs.map transform
     let rhs' ← rhs.map transform
     transform $ .binop op lhs' rhs'
+  | index base idx =>
+    let base' ← base.map transform
+    let idx' ← idx.map transform
+    transform $ .index base' idx'
   | proj id idx =>
     let id' ← id.map transform
     transform $ .proj id' idx

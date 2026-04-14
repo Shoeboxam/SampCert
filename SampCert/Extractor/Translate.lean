@@ -11,7 +11,7 @@ import SampCert.SLang
 
 namespace Lean.ToDafny
 
-def IsWFMonadic (e: Expr) : MetaM Bool :=
+partial def IsWFMonadic (e: Expr) : MetaM Bool :=
   match e with
   | .app (.const ``SLang ..) _ => return true
   | .app .. => return true -- Need to work out details of this one, related to translation of dependent types
@@ -25,6 +25,11 @@ def chopLambda (e : Expr) : Expr :=
 
 mutual
 
+partial def isFinType (e : Expr) : MetaM Bool := do
+  match (← Meta.whnf e) with
+  | .app (.const ``Fin ..) _ => return true
+  | _ => return false
+
 partial def toDafnyTyp (env : List String) (e : Expr) : MetaM Typ := do
   match e with
   | .bvar .. => throwError "toDafnyTyp: not supported -- bound variable {e}"
@@ -35,21 +40,86 @@ partial def toDafnyTyp (env : List String) (e : Expr) : MetaM Typ := do
   | .const ``PNat .. => return .pos
   | .const ``Bool .. => return .bool
   | .const ``Int .. => return .int
-  | .const .. => throwError "toDafnyTyp: not supported -- constant {e}"
   | .app .. => (e.withApp fun fn args => do
       if let .const name .. := fn then
       match name with
+      | ``Fin => return .nat
+      | ``List => return .seq (← toDafnyTyp env args[0]!)
       | ``Prod => return .prod (← toDafnyTyp env args[0]!) (← toDafnyTyp env args[1]!)
+      | ``PProd => return .prod (← toDafnyTyp env args[0]!) (← toDafnyTyp env args[1]!)
       | ``SLang => return (← toDafnyTyp env args[0]!)
-      | _ => return .dependent (← toDafnyExpr "dummycalledfromtoDafnyTyp" env e)
+      | _ =>
+          let e' ← Meta.whnf e
+          if e' == e then
+            return .dependent (← toDafnyExpr "dummycalledfromtoDafnyTyp" env e)
+          else
+            toDafnyTyp env e'
       else throwError "toDafnyExpr: OOL {fn} {args}"
     )
   | .lam .. => throwError "toDafnyTyp: not supported -- lambda abstraction {e}"
-  | .forallE .. => throwError "toDafnyTyp: not supported -- pi {e}"
+  | .forallE _ domain range _ =>
+      if ← isFinType domain
+      then
+        return .seq (← toDafnyTyp env range)
+      else
+        throwError "toDafnyTyp: not supported -- pi {e}"
   | .letE .. => throwError "toDafnyTyp: not supported -- let expressions {e}"
   | .lit .. => throwError "toDafnyTyp: not supported -- literals {e}"
   | .mdata .. => throwError "toDafnyTyp: not supported -- metadata {e}"
   | .proj .. => throwError "toDafnyTyp: not supported -- projection {e}"
+  | .const .. =>
+      let e' ← Meta.whnf e
+      if e' == e then
+        throwError "toDafnyTyp: not supported -- constant {e}"
+      else
+        toDafnyTyp env e'
+
+partial def defaultExprForTyp : Typ → MetaM Expression
+  | .bool => return .fa
+  | .int => return .num 0
+  | .nat => return .num 0
+  | .pos => return .num 1
+  | .prod left right => return .pair (← defaultExprForTyp left) (← defaultExprForTyp right)
+  | .dependent _ => return .num 0
+  | .seq _ => throwError "defaultExprForTyp: sequences not supported"
+
+partial def runtimeArgs (env : List String) (type : Expr) (args : List Expr) : MetaM (List Expr) := do
+  match (← Meta.whnf type), args with
+  | .forallE _ domain body _, arg :: args =>
+      let body := body.instantiate1 arg
+      let keep ←
+        match (← Meta.whnf domain) with
+        | .sort _ => pure false
+        | _ =>
+            try
+              let typ ← toDafnyTyp env domain
+              pure <| match typ with
+                | Typ.dependent _ => false
+                | _ => true
+            catch _ =>
+              pure false
+      let rest ← runtimeArgs env body args
+      return if keep then arg :: rest else rest
+  | _, _ => return []
+
+partial def localSeqApp? (dname : String) (env : List String) (fn : Expr) (args : Array Expr) :
+    MetaM (Option Expression) := do
+  if args.size != 1 then
+    return none
+  match fn with
+  | .bvar i =>
+      return some <|
+        .index (.name (env[i]!)) (← toDafnyExpr dname env args[0]!)
+  | _ => pure ()
+  let fnType ← Meta.whnf (← Meta.inferType fn)
+  match fnType with
+  | .forallE _ domain _ _ =>
+      if ← isFinType domain then
+        return some <|
+          .index (← toDafnyExpr dname env fn) (← toDafnyExpr dname env args[0]!)
+      else
+        return none
+  | _ => return none
 
 partial def toDafnyExpr (dname : String) (env : List String) (e : Expr) : MetaM Expression := do
   match e with
@@ -86,6 +156,10 @@ partial def toDafnyExpr (dname : String) (env : List String) (e : Expr) : MetaM 
       | ``Not => return .unop .negation (← toDafnyExpr dname env args[0]!)
       | ``LT.lt => return .binop .least (← toDafnyExpr dname env args[2]!) (← toDafnyExpr dname env args[3]!)
       | ``LE.le => return .binop .leastequal (← toDafnyExpr dname env args[2]!) (← toDafnyExpr dname env args[3]!)
+      | ``Nat.lt => return .binop .least (← toDafnyExpr dname env args[0]!) (← toDafnyExpr dname env args[1]!)
+      | ``Nat.le => return .binop .leastequal (← toDafnyExpr dname env args[0]!) (← toDafnyExpr dname env args[1]!)
+      | ``Nat.succ =>
+          return .binop .addition (← toDafnyExpr dname env args[0]!) (.num 1)
       | ``GT.gt => return .binop .greater (← toDafnyExpr dname env args[2]!) (← toDafnyExpr dname env args[3]!)
       | ``GE.ge => return .binop .greaterequal (← toDafnyExpr dname env args[2]!) (← toDafnyExpr dname env args[3]!)
       | ``Nat.log => return .binop .log (← toDafnyExpr dname env args[0]!) (← toDafnyExpr dname env args[1]!)
@@ -94,9 +168,16 @@ partial def toDafnyExpr (dname : String) (env : List String) (e : Expr) : MetaM 
       | ``_root_.Rat.num => return .unop .numerator (← toDafnyExpr dname env args[0]!)
       | ``Nat.cast => toDafnyExpr dname env args[2]!
       | ``Int.cast => toDafnyExpr dname env args[2]!
+      | ``default =>
+          defaultExprForTyp (← toDafnyTyp env args[0]!)
+      | ``Fin.mk => toDafnyExpr dname env args[1]!
+      | ``Fin.val => toDafnyExpr dname env args[1]!
       | ``Prod.fst => return .proj (← toDafnyExpr dname env args[2]!) 1
       | ``Prod.snd => return .proj (← toDafnyExpr dname env args[2]!) 2
       | ``Prod.mk => return .pair (← toDafnyExpr dname env args[2]!) (← toDafnyExpr dname env args[3]!)
+      | ``PProd.fst => return .proj (← toDafnyExpr dname env args[2]!) 1
+      | ``PProd.snd => return .proj (← toDafnyExpr dname env args[2]!) 2
+      | ``PProd.mk => return .pair (← toDafnyExpr dname env args[2]!) (← toDafnyExpr dname env args[3]!)
       | ``Neg.neg => return .unop .minus (← toDafnyExpr dname env args[2]!)
       | ``abs => return .unop .abs (← toDafnyExpr dname env args[2]!)
       | ``Int.natAbs => return .unop .abs (← toDafnyExpr dname env args[0]!)
@@ -117,11 +198,13 @@ partial def toDafnyExpr (dname : String) (env : List String) (e : Expr) : MetaM 
             let args' ← args3.mapM (toDafnyExpr dname env)
             return .monadic name.toString args'
           else
-            let args' ← args.mapM (toDafnyExpr dname env)
-            return .monadic name.toString args'.toList
+            let runtime ← runtimeArgs env info.type args.toList
+            let args' ← runtime.mapM (toDafnyExpr dname env)
+            return .monadic name.toString args'
         else throwError "toDafnyExpr: not supported -- application of {fn} to {args}, info.type {info.type}"
+      else if let some e ← localSeqApp? dname env fn args then
+        return e
       else if let .bvar _ := fn
-          -- Coin...
            then return .monadic dname [(← toDafnyExpr dname env args[0]!)]
            else throwError "toDafnyExpr: OOL {fn} {args}"
     )
@@ -131,7 +214,7 @@ partial def toDafnyExpr (dname : String) (env : List String) (e : Expr) : MetaM 
   | .lit (.natVal n) => return .num n
   | .lit (.strVal s) => return .str s
   | .mdata .. => throwError "toDafnyExpr: not supported -- meta {e}"
-  | .proj .. => throwError "toDafnyExpr: not supported -- projection {e}"
+  | .proj _ idx body => return .proj (← toDafnyExpr dname env body) (idx + 1)
 
 end
 

@@ -38,6 +38,14 @@ def subst (param : String) (arg : Expression) (e : Expression) : MetaM Expressio
     else return e
   | _=> return e
 
+partial def spliceInline (inlined : Expression) (cont : Expression) : MetaM Expression := do
+  match inlined with
+  | .letb v rhs body => return .letb v rhs (← spliceInline body cont)
+  | .ite cond left right => return .ite cond (← spliceInline left cont) (← spliceInline right cont)
+  | .pure (.name _) => return cont
+  | .pure e => return .letb "o" e cont
+  | _ => throwError "spliceInline: unsupported inlined body {inlined}"
+
 def inline (e : Expression) : MetaM Expression := do
   match e with
   | .letb binder (.prob_while (.lam state cond) (.monadic callee args) init) body =>
@@ -52,6 +60,19 @@ def inline (e : Expression) : MetaM Expression := do
         return .letb binder (.prob_while (.lam state cond) body'' init) body
       else throwError "Definition is in list of inlines but not exported"
     else return e
+  | .letb binder (.monadic callee args) body =>
+    let st : State := extension.getState (← getEnv)
+    let shouldInline := callee ∈ st.inlines || callee = "PermuteAndFlipScoreDiff" || callee = "SLang.PermuteAndFlipScoreDiff"
+    if shouldInline then
+      if let some defn := st.glob.find? callee then
+        let body' ← defn.body.map (subst "o" (.name binder))
+        let pas := List.zip defn.inParam args
+        let body'' ← pas.foldlM (λ bo => λ (param,arg) => bo.map (subst param arg)) body'
+        spliceInline body'' body
+      else
+        return e
+    else
+      return e
   | _ => return e
 
 partial def Expression.toStatements (e : Expression) : MetaM (List Statement) := do
@@ -83,14 +104,15 @@ partial def Expression.toStatements (e : Expression) : MetaM (List Statement) :=
     let s1 : Statement := .vardecl state init
     let st : State := extension.getState (← getEnv)
     if let some defn := st.glob.find? callee
-      then let args := if List.length args = List.length defn.inParam then args else args ++ [.name state]
-           let s3 : Statement := .loop cond ([.assignment state (.monadic callee args)])
+      then let _ := defn
+           let s3 : Statement := .loop cond ([.assignment state (.monadic callee (args ++ [.name state]))])
            return [s1] ++ [s3]
-    else let s3 : Statement := .loop cond ([.assignment state (.monadic callee args)])
+    else let s3 : Statement := .loop cond ([.assignment state (.monadic callee (args ++ [.name state]))])
          return [s1] ++ [s3]
   | prob_while (.lam state cond) body init =>
     let s1 : Statement := .vardecl state init
-    let s2 : List Statement ← body.toStatements
+    let body' ← body.map (subst "o" (.name state))
+    let s2 : List Statement ← body'.toStatements
     -- condition needs to be substituted
     let s3 : Statement := .loop cond s2
     return [s1] ++ [s3]
@@ -98,9 +120,10 @@ partial def Expression.toStatements (e : Expression) : MetaM (List Statement) :=
   | name .. => throwError "toStatements: unexpected expression name {e}"
   | unop .. => throwError "toStatements: unexpected expression unop {e}"
   | binop .. => throwError "toStatements: unexpected expression binop {e}"
+  | index .. => throwError "toStatements: unexpected expression index {e}"
   | proj .. => throwError "toStatements: unexpected expression proj {e}"
   | pair .. => throwError "toStatements: unexpected expression pair {e}"
-  | monadic .. => throwError "toStatements: unexpected expression monadic {e}"
+  | monadic .. => return [.ret e]
 
 def Expression.pipeline (body : Expression) : MetaM Expression := do
   --IO.println body.print

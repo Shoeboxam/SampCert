@@ -31,7 +31,8 @@ uniform permutation plus exact Bernoulli-exponential selector.
 -/
 def permuteAndFlipSLang (n : CandidateCount) (q : Scores n) (ε₁ : ℕ) (ε₂ : ℕ+) :
     SLang (Fin n.succ) := do
-  let σ ← ((PMF.uniformOfFintype (Equiv.Perm (Fin n.succ))) : SLang (Equiv.Perm (Fin n.succ)))
+  let σ ← ((PMF.uniformOfFintype (Equiv.Perm (Fin n.succ))) :
+     SLang (Equiv.Perm (Fin n.succ)))
   selectSLang ((canonicalOrder n).map σ) q ε₁ ε₂
 
 @[simp]

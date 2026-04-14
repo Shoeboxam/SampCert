@@ -8,6 +8,10 @@ import SampCert.Extractor.IR
 
 namespace Lean.ToDafny
 
+def concatMap {α β : Type} (f : α → List β) : List α → List β
+  | [] => []
+  | x :: xs => f x ++ concatMap f xs
+
 inductive Statement where
   | vardecl (lhs : String) (rhs : Expression)
   | assignment (lhs : String) (rhs : Expression)
@@ -71,5 +75,40 @@ def Method.print (m : Method) : String :=
   (indent 3) ++ s!"decreases *\n" ++
   (indent 2) ++ s!"\{\n{sjoin m.body 3}" ++
   (indent 2) ++"}\n\n"
+
+mutual
+
+partial def Expression.monadicCalls (e : Expression) : List String :=
+  match e with
+  | .tr | .fa | .num _ | .str _ | .name _ => []
+  | .letb _ rhs body => rhs.monadicCalls ++ body.monadicCalls
+  | .ite cond left right => cond.monadicCalls ++ left.monadicCalls ++ right.monadicCalls
+  | .bind rhs body => rhs.monadicCalls ++ body.monadicCalls
+  | .lam _ body => body.monadicCalls
+  | .pure e => e.monadicCalls
+  | .throw e => e.monadicCalls
+  | .prob_until body cond => body.monadicCalls ++ cond.monadicCalls
+  | .prob_while cond body init => cond.monadicCalls ++ body.monadicCalls ++ init.monadicCalls
+  | .unop _ rhs => rhs.monadicCalls
+  | .binop _ lhs rhs => lhs.monadicCalls ++ rhs.monadicCalls
+  | .index base idx => base.monadicCalls ++ idx.monadicCalls
+  | .proj name _ => name.monadicCalls
+  | .pair left right => left.monadicCalls ++ right.monadicCalls
+  | .monadic name args => name :: concatMap Expression.monadicCalls args
+
+partial def Statement.monadicCalls (s : Statement) : List String :=
+  match s with
+  | .vardecl _ rhs => rhs.monadicCalls
+  | .assignment _ rhs => rhs.monadicCalls
+  | .loop cond body => cond.monadicCalls ++ concatMap Statement.monadicCalls body
+  | .conditional cond ifso ifnot =>
+      cond.monadicCalls ++ concatMap Statement.monadicCalls ifso ++ concatMap Statement.monadicCalls ifnot
+  | .expect cond msg => cond.monadicCalls ++ msg.monadicCalls
+  | .ret e => e.monadicCalls
+
+end
+
+def Method.monadicCalls (m : Method) : List String :=
+  concatMap Statement.monadicCalls m.body
 
 end Lean.ToDafny

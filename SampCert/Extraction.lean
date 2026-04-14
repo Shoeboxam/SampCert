@@ -11,6 +11,7 @@ import SampCert.Samplers.Bernoulli.Code
 import SampCert.Samplers.BernoulliNegativeExponential.Code
 import SampCert.Samplers.Laplace.Code
 import SampCert.Samplers.Gaussian.Code
+import SampCert.DifferentialPrivacy.PermuteAndFlip.Code
 
 open SLang
 
@@ -42,3 +43,4 @@ attribute [export_dafny] DiscreteLaplaceSampleOptimized
 attribute [export_dafny] DiscreteLaplaceSampleMixed
 attribute [export_dafny] DiscreteGaussianSampleLoop
 attribute [export_dafny] DiscreteGaussianSample
+attribute [export_dafny] PermuteAndFlipSample
