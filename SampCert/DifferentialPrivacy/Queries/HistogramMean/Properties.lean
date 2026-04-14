@@ -66,7 +66,10 @@ instance : DiscreteMeasurableSpace (Option (Fin ↑numBins)) where
 DP bound for the adaptive mean
 -/
 lemma privMeanHistogram_DP (ε₁ ε₂ : ℕ+) (τ : ℤ) (ε₃ ε₄ : ℕ+) :
-    dps.prop (privMeanHistogram dps numBins B unbin ε₁ ε₂ τ ε₃ ε₄) (ε₁/ε₂ + ε₃/ε₄) := by
+    dps.prop (privMeanHistogram dps numBins B unbin ε₁ ε₂ τ ε₃ ε₄)
+      ((numBins : NNReal) * dps.privParam (ε₁ / (ε₂ * numBins : PNat)) +
+        (dps.privParam (ε₃ / ((2 * ε₄) : PNat)) +
+          dps.privParam (ε₃ / ((2 * ε₄) : PNat)))) := by
   rw [privMeanHistogram]
   apply dps.postprocess_prop
   apply dps.adaptive_compose_prop

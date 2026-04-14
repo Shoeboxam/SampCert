@@ -88,7 +88,7 @@ theorem privThresholdKeyReleaseVec_zCDP
     (hquery : regularSensitivityL2 query Δ) :
     zCDP
       (privThresholdKeyReleaseVec query Δ ε₁ ε₂ τ)
-      (((ε₁ : NNReal) / ε₂ : NNReal)) := by
+      ((1 / 2 : NNReal) * (((ε₁ : NNReal) / ε₂ : NNReal) ^ 2)) := by
   apply privPostProcess_zCDP
   exact privNoisedQueryVec_zCDP query Δ ε₁ ε₂ hquery
 
@@ -99,7 +99,7 @@ theorem privThresholdKeyReleaseVecCorr_zCDP
     (hquery : regularCorrelatedSensitivityL2 center query Δ) :
     zCDP
       (privThresholdKeyReleaseVecCorr center query Δ ε₁ ε₂ τ)
-      (((ε₁ : NNReal) / ε₂ : NNReal)) := by
+      ((1 / 2 : NNReal) * (((ε₁ : NNReal) / ε₂ : NNReal) ^ 2)) := by
   apply privPostProcess_zCDP
   exact privNoisedQueryVecCorr_zCDP center query Δ ε₁ ε₂ hquery
 
@@ -140,7 +140,10 @@ theorem privThresholdKeyReleaseVec_ApproxDP
         δ := by
   intro δ hδ
   rcases privThresholdKeyReleaseVec_zCDP query Δ ε₁ ε₂ τ hquery with ⟨hac, hbound⟩
-  exact ApproximateDP_of_zCDP _ _ (by positivity) hbound hac δ hδ
+  let ρ : ℝ := (((ε₁ : NNReal) / ε₂ : NNReal) : ℝ)
+  have hρ : 0 ≤ ρ := by positivity
+  simpa [ρ, Real.sqrt_sq_eq_abs, abs_of_nonneg hρ, division_def, mul_assoc, mul_left_comm, mul_comm] using
+    (ApproximateDP_of_zCDP _ _ (by positivity) hbound hac δ hδ)
 
 theorem privThresholdKeyReleaseVecCorr_ApproxDP
     [Inhabited ι]
@@ -156,6 +159,9 @@ theorem privThresholdKeyReleaseVecCorr_ApproxDP
         δ := by
   intro δ hδ
   rcases privThresholdKeyReleaseVecCorr_zCDP center query Δ ε₁ ε₂ τ hquery with ⟨hac, hbound⟩
-  exact ApproximateDP_of_zCDP _ _ (by positivity) hbound hac δ hδ
+  let ρ : ℝ := (((ε₁ : NNReal) / ε₂ : NNReal) : ℝ)
+  have hρ : 0 ≤ ρ := by positivity
+  simpa [ρ, Real.sqrt_sq_eq_abs, abs_of_nonneg hρ, division_def, mul_assoc, mul_left_comm, mul_comm] using
+    (ApproximateDP_of_zCDP _ _ (by positivity) hbound hac δ hδ)
 
 end SLang

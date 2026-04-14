@@ -20,10 +20,12 @@ namespace SLang
 
 
 /--
-The zCDP mechanism with bounded sensitivity satisfies the bound for ``(Δε₂/ε₁)^2``-zCDP.
+The zCDP mechanism with bounded sensitivity satisfies a
+`((ε₁ / ε₂)^2 / 2)`-zCDP bound.
 -/
 theorem privNoisedQuery_zCDPBound (query : List T → ℤ) (Δ ε₁ ε₂ : ℕ+) (bounded_sensitivity : sensitivity query Δ) :
-  zCDPBound (privNoisedQuery query Δ ε₁ ε₂) ((ε₁ : NNReal) / ε₂) := by
+  zCDPBound (privNoisedQuery query Δ ε₁ ε₂)
+    ((1 / 2 : NNReal) * (((ε₁ : NNReal) / ε₂ : NNReal) ^ 2)) := by
   simp [zCDPBound, privNoisedQuery]
   intros α h1 l₁ l₂ h2
   have A := @discrete_GaussianGenSample_ZeroConcentrated α h1 (Δ * ε₂) ε₁ (query l₁) (query l₂)
@@ -189,15 +191,15 @@ def privNoisedQuery_AC (query : List T -> ℤ) (Δ ε₁ ε₂ : ℕ+) : ACNeigh
   linarith
 
 /--
-The zCDP mechanism is ``(Δε₂/ε₁)^2``-zCDP.
+The zCDP mechanism is `((ε₁ / ε₂)^2 / 2)`-zCDP.
 -/
 theorem privNoisedQuery_zCDP (query : List T → ℤ) (Δ ε₁ ε₂ : ℕ+) (bounded_sensitivity : sensitivity query Δ) :
-  zCDP (privNoisedQuery query Δ ε₁ ε₂) ((ε₁ : NNReal) / ε₂) := by
+  zCDP (privNoisedQuery query Δ ε₁ ε₂)
+    ((1 / 2 : NNReal) * (((ε₁ : NNReal) / ε₂ : NNReal) ^ 2)) := by
   simp [zCDP]
   apply And.intro
   · exact privNoisedQuery_AC query Δ ε₁ ε₂
-  · apply privNoisedQuery_zCDPBound
-    exact bounded_sensitivity
+  · simpa using privNoisedQuery_zCDPBound query Δ ε₁ ε₂ bounded_sensitivity
 
 
 end SLang

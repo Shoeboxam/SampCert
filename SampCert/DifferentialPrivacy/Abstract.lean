@@ -47,9 +47,15 @@ class DPSystem (T : Type) where
   -/
   noise : Query T ℤ → (sensitivity : ℕ+) → (num : ℕ+) → (den : ℕ+) → Mechanism T ℤ
   /--
+  Translate the raw rational noise budget into the privacy parameter used by
+  `prop`.
+  -/
+  privParam : NNReal → NNReal
+  /--
   Adding noise to a query makes it private.
   -/
-  noise_prop : ∀ q : List T → ℤ, ∀ Δ εn εd : ℕ+, sensitivity q Δ → prop (noise q Δ εn εd) (εn / εd)
+  noise_prop : ∀ q : List T → ℤ, ∀ Δ εn εd : ℕ+,
+    sensitivity q Δ → prop (noise q Δ εn εd) (privParam (εn / εd))
   /--
   Privacy adaptively composes by addition.
   -/

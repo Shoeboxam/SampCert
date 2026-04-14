@@ -1060,7 +1060,8 @@ def privNoisedQueryVec_AC
 theorem privNoisedQueryVec_zCDP
     (query : List T → (ι → ℤ)) (Δ ε₁ ε₂ : ℕ+)
     (hquery : regularSensitivityL2 query Δ) :
-    zCDP (privNoisedQueryVec query Δ ε₁ ε₂) (((ε₁ : NNReal) / ε₂ : NNReal)) := by
+    zCDP (privNoisedQueryVec query Δ ε₁ ε₂)
+      ((1 / 2 : NNReal) * (((ε₁ : NNReal) / ε₂ : NNReal) ^ 2)) := by
   have hzcdp := privAdditiveQuery_zCDP
     (space := regularSpace (ι := ι))
     (noise := discreteGaussianVecPMF)
@@ -1077,10 +1078,11 @@ theorem privNoisedQueryVecCorr_zCDP
     [MeasurableSpace T] [MeasurableSingletonClass T]
     (center : List T → ℤ) (query : List T → (ι → ℤ)) (Δ ε₁ ε₂ : ℕ+)
     (hquery : regularCorrelatedSensitivityL2 center query Δ) :
-    zCDP (privNoisedQueryVecCorr center query Δ ε₁ ε₂) (((ε₁ : NNReal) / ε₂ : NNReal)) := by
+    zCDP (privNoisedQueryVecCorr center query Δ ε₁ ε₂)
+      ((1 / 2 : NNReal) * (((ε₁ : NNReal) / ε₂ : NNReal) ^ 2)) := by
   have hlifted :
       zCDP (privNoisedQueryVecCorrLifted center query Δ ε₁ ε₂)
-        (((ε₁ : NNReal) / ε₂ : NNReal)) := by
+        ((1 / 2 : NNReal) * (((ε₁ : NNReal) / ε₂ : NNReal) ^ 2)) := by
     apply privPostProcess_zCDP
     exact privNoisedQueryVec_zCDP
       (correlatedRegularLift center query) Δ ε₁ ε₂

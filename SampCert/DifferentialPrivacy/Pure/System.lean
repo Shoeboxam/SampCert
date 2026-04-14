@@ -26,6 +26,7 @@ noncomputable instance PureDPSystem : DPSystem T where
   prop_adp := pure_ApproximateDP
   prop_mono := PureDP_mono
   noise := privNoisedQueryPure
+  privParam := id
   noise_prop := privNoisedQueryPure_DP
   adaptive_compose_prop := PureDP_ComposeAdaptive'
   postprocess_prop := PureDP_PostProcess

@@ -29,7 +29,10 @@ noncomputable instance gaussian_zCDPSystem : DPSystem T where
   prop_adp := zCDP_ApproximateDP
   prop_mono := zCDP_mono
   noise := privNoisedQuery
-  noise_prop := privNoisedQuery_zCDP
+  privParam := fun ε => (1 / 2 : NNReal) * ε ^ 2
+  noise_prop := by
+    intro q Δ εn εd hq
+    simpa using privNoisedQuery_zCDP q Δ εn εd hq
   adaptive_compose_prop := privComposeAdaptive_zCDP
   postprocess_prop := privPostProcess_zCDP
   const_prop := privConst_zCDP
