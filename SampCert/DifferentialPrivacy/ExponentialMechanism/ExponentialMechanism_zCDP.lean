@@ -119,10 +119,20 @@ lemma boundedRange_implies_zCDP_slang {T U : Type}
     ∑' u : U, (m l₁ u) ^ α * (m l₂ u) ^ (1 - α) ≤
       ENNReal.ofReal (Real.exp ((α - 1) * α * ε ^ 2 / 8)) := by
   sorry
-  -- Proof requires:
-  -- 1. Hoeffding's lemma: for bounded LLR, E[exp(t·LLR)] ≤ exp(t²ε²/2)
-  -- 2. Rényi divergence bound: D_α ≤ α·ε²/8
-  -- 3. Full formalization in SampCert's Rényi infrastructure
+  -- Mathlib has Hoeffding's lemma as `hasSubgaussianMGF_of_mem_Icc` in
+  -- `Mathlib.Probability.Moments.SubGaussian`, giving:
+  --   E[exp(t(X-μ))] ≤ exp(ε²t²/2)  for X ∈ [-ε, ε].
+  -- Applied here: ∑ p^α q^(1-α) = E_q[exp(α·log(p/q))], with log(p/q) ∈ [-ε,ε] from BR.
+  --
+  -- However two gaps remain:
+  -- (1) CONSTANT GAP: The simple Hoeffding bound gives D_α ≤ α²ε²/(2(α-1)), which is 4x
+  --     weaker than the target D_α ≤ α·ε²/8. The tight 1/8 factor requires the bilateral
+  --     BR bound (Cesar-Rogers 2021 Theorem 8) using a symmetrization argument.
+  -- (2) TYPE GAP: Mathlib's Hoeffding works with MeasureTheory.Measure (measure-theoretic
+  --     probability), while SampCert uses SLang = U → ℝ≥0∞. Bridging these requires
+  --     connecting SLang tsums to measure-theoretic expectations.
+  --
+  -- Both are resolvable in principle but require substantial additional formalization.
 
 /-! ### Main zCDP theorem -/
 
