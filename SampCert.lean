@@ -10,6 +10,7 @@ import SampCert.DifferentialPrivacy.Queries.Histogram.Basic
 import SampCert.DifferentialPrivacy.Queries.ThresholdedKeyRelease
 import SampCert.DifferentialPrivacy.Queries.ThresholdedKeyReleaseUnknown
 import SampCert.DifferentialPrivacy.PermuteAndFlip.Basic
+import SampCert.DifferentialPrivacy.ExponentialMechanism.Basic
 import SampCert.DifferentialPrivacy.ZeroConcentrated.System
 import SampCert.DifferentialPrivacy.Pure.System
 import SampCert.DifferentialPrivacy.Queries.HistogramMean.Properties
