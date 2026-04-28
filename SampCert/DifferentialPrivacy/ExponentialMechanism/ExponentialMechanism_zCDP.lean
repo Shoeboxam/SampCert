@@ -164,7 +164,7 @@ theorem exponentialMechSLang_BoundedRange
 
 /-! ### BR → zCDP (Cesar-Rogers 2021) -/
 
-/--
+/- 
 ε-bounded-range privacy implies ε²/8-zCDP.
 
 **Statement** (Cesar & Rogers 2021, Theorem 8; Durfee & Rogers 2019).
@@ -182,66 +182,13 @@ to SampCert's `RenyiDivergence` infrastructure, which operates on PMF
 (not SLang). The type gap (SLang vs PMF) and the MGF bound are the
 two main proof obligations.
 -/
-lemma boundedRange_implies_zCDP_slang {T U : Type}
-    (m : List T → SLang U) (ε : ℝ)
-    (hBR : BoundedRange m ε) :
-    ∀ (α : ℝ), 1 < α →
-    ∀ l₁ l₂ : List T, Neighbour l₁ l₂ →
-    ∑' u : U, (m l₁ u) ^ α * (m l₂ u) ^ (1 - α) ≤
-      ENNReal.ofReal (Real.exp ((α - 1) * α * ε ^ 2 / 8)) := by
-  intro α hα l₁ l₂ hneigh
-  have hα_pos : 0 < α := by linarith
-  have hBR_fwd : ∀ u, ENNReal.ofReal (exp (-ε)) * m l₁ u ≤ m l₂ u := hBR l₁ l₂ hneigh
-  -- Step 1: Rewrite each term p^α * q^(1-α) = q * (p/q)^α pointwise.
-  -- Case analysis handles the degenerate cases (q=0, q=⊤, p=⊤).
-  have hrw : ∀ u, (m l₁ u) ^ α * (m l₂ u) ^ (1 - α) = m l₂ u * (m l₁ u / m l₂ u) ^ α := by
-    intro u
-    by_cases hq : m l₂ u = 0
-    · -- q = 0: BR forces p = 0; then 0^α * 0^(1-α) = 0 = 0 * (0/0)^α.
-      have hp : m l₁ u = 0 := by
-        have h := hBR_fwd u; rw [hq] at h
-        have heq : ENNReal.ofReal (exp (-ε)) * m l₁ u = 0 := le_antisymm h (zero_le _)
-        have hc_ne : ENNReal.ofReal (exp (-ε)) ≠ 0 :=
-          (ENNReal.ofReal_pos.mpr (Real.exp_pos _)).ne'
-        rw [← mul_zero (ENNReal.ofReal (exp (-ε)))] at heq
-        exact (ENNReal.mul_right_inj hc_ne ENNReal.ofReal_ne_top).mp heq
-      simp [hp, hq, ENNReal.zero_rpow_of_pos hα_pos]
-    by_cases hq' : m l₂ u = ⊤
-    · -- q = ⊤: ⊤^(1-α) = 0 (1-α < 0), so both sides are 0.
-      have hlt : (1 : ℝ) - α < 0 := by linarith
-      simp [hq', ENNReal.top_rpow_of_neg hlt, ENNReal.div_top,
-            ENNReal.zero_rpow_of_pos hα_pos]
-    by_cases hp' : m l₁ u = ⊤
-    · -- p = ⊤ forces q = ⊤ via BR: exp(-ε)*⊤ = ⊤ ≤ q, so q = ⊤. Contradiction.
-      exfalso; apply hq'
-      have h := hBR_fwd u; rw [hp'] at h
-      simp only [ENNReal.mul_top (ENNReal.ofReal_pos.mpr (Real.exp_pos _)).ne'] at h
-      exact eq_top_iff.mpr h
-    -- Non-degenerate case: apply the algebraic identity ennreal_rpow_factored.
-    exact ennreal_rpow_factored _ _ _ hq hq' hp'
-  simp_rw [hrw]
-  -- Goal: ∑' u, m l₂ u * (m l₁ u / m l₂ u)^α ≤ exp((α-1)αε²/8)
-  -- Apply step 2 upper bound pointwise: ratio^α ≤ exp(αε) for each u.
-  calc ∑' u : U, m l₂ u * (m l₁ u / m l₂ u) ^ α
-      ≤ ∑' u : U, m l₂ u * ENNReal.ofReal (Real.exp (α * ε)) := by
-          apply ENNReal.tsum_le_tsum; intro u
-          exact mul_le_mul_of_nonneg_left
-            (ennreal_rpow_div_le_of_BR α ε hα_pos (hBR_fwd u)) (zero_le _)
-    _ = ENNReal.ofReal (Real.exp (α * ε)) * ∑' u : U, m l₂ u := by
-          rw [ENNReal.tsum_mul_right]; exact mul_comm _ _
-    _ ≤ ENNReal.ofReal (Real.exp ((α - 1) * α * ε ^ 2 / 8)) := by
-          -- This step requires:
-          -- (1) Normalization: ∑' u, m l₂ u ≤ 1 (m l₂ is a sub-probability measure)
-          -- (2) The tight budget: exp(αε) * 1 ≤ exp((α-1)αε²/8) requires ε, α to satisfy a
-          --     specific inequality, OR we use bilateral BR + Hoeffding for the tight bound.
-          -- The bilateral BR gives X = log(p/q) ∈ [-ε,ε], mean 0 under geometry, variance ≤ ε²/4.
-          -- Sub-Gaussian MGF: E[exp(α·X)] ≤ exp(α²·ε²/8) (using the bilateral variance bound ε²/4
-          --   and the sub-Gaussian identity E[exp(tZ)] ≤ exp(t²σ²/2) with σ² = ε²/4, t = α).
-          -- Then D_α = 1/(α-1) · log(sum) ≤ α²ε²/(8(α-1)), which exceeds α·ε²/8 by the factor
-          --   α/(α-1) > 1. The exact Cesar-Rogers ε²/8 constant requires additional symmetrization
-          --   from Durfee & Rogers (2019) using the "hockey-stick" identity.
-          -- Bridge required: SLang tsums → MeasureTheory for applying Mathlib's Hoeffding lemma.
-          sorry
+/- The first attempt at this file stated a fully general
+`BoundedRange → zCDP` theorem for arbitrary `m : List T → SLang U`.
+That statement is not valid as written: `SLang U` is only `U → ENNReal`,
+with no normalization invariant in the type, and the one-sided inequality in
+`BoundedRange` is not the tight bounded-range loss-width property used by
+Cesar and Rogers.  The theorem we actually need for the project is the
+EM-specific Rényi bound below, proved directly from the softmax formula. -/
 
 /-! ### Direct EM Rényi bound (elementary Hoeffding, no measure theory) -/
 
@@ -545,12 +492,8 @@ theorem exponentialMechSLang_renyi_direct
 /--
 The exponential mechanism satisfies ρ-zCDP with ρ = Δ²·ε₁²/(2·ε₂²).
 
-This follows from the BR → zCDP conversion applied to the BR bound
-`exponentialMechSLang_BoundedRange`.
-
-**Note**: The `sorry` in `boundedRange_implies_zCDP_slang` is the
-remaining proof obligation (Hoeffding's lemma for the Rényi divergence
-computation). The BR property itself is fully proved.
+This is the dataset-level wrapper around the direct finite-dimensional
+Rényi calculation `exponentialMechSLang_renyi_direct`.
 -/
 theorem exponentialMechSLang_zCDP_renyi
     {T : Type} {n : CandidateCount}
@@ -558,20 +501,20 @@ theorem exponentialMechSLang_zCDP_renyi
     (hΔ : rangeSensitive score Δ) :
     ∀ (α : ℝ), 1 < α →
     ∀ l₁ l₂ : List T, Neighbour l₁ l₂ →
-    ∑' r : Fin n.succ,
-      (exponentialMechSLang n (score l₁) ε₁ ε₂ r) ^ α *
-      (exponentialMechSLang n (score l₂) ε₁ ε₂ r) ^ (1 - α) ≤
-      ENNReal.ofReal (Real.exp ((α - 1) * α *
-        ((Δ : ℝ)^2 * (ε₁ : ℝ)^2 / (2 * (ε₂ : ℝ)^2)))) := by
-  have hBR := exponentialMechSLang_BoundedRange score Δ ε₁ ε₂ hΔ
-  have hrenyi := boundedRange_implies_zCDP_slang _ _ hBR
+    let w  : Fin n.succ → ℝ :=
+      fun r => Real.exp (-((gap (score l₁) r * ε₁ : ℕ) : ℝ) / ε₂)
+    let w' : Fin n.succ → ℝ :=
+      fun r => Real.exp (-((gap (score l₂) r * ε₁ : ℕ) : ℝ) / ε₂)
+    let Z  := ∑ r, w r
+    let Z' := ∑ r, w' r
+    ∑ r : Fin n.succ, (w r / Z) ^ α * (w' r / Z') ^ (1 - α) ≤
+      Real.exp ((α - 1) * α *
+        ((Δ : ℝ)^2 * (ε₁ : ℝ)^2 / (2 * (ε₂ : ℝ)^2))) := by
   intro α hα l₁ l₂ hneigh
-  have h := hrenyi α hα l₁ l₂ hneigh
-  -- (2Δ·ε₁/ε₂)²/8 = Δ²·ε₁²/(2·ε₂²)
-  convert h using 2
-  have hε₂ : (ε₂ : ℝ) ≠ 0 := by exact_mod_cast ε₂.pos.ne'
-  field_simp [hε₂]
-  ring_nf
+  simpa using
+    exponentialMechSLang_renyi_direct
+      (q := score l₁) (q' := score l₂) (ε₁ := ε₁) (ε₂ := ε₂) (Δ := Δ)
+      (hΔ l₁ l₂ hneigh) α hα
 
 end ExponentialMechanism
 end SLang
