@@ -14,6 +14,7 @@ import SampCert.DifferentialPrivacy.Queries.Sparse.Basic
 import SampCert.DifferentialPrivacy.Queries.AboveThresh.Basic
 import SampCert.DifferentialPrivacy.Approximate.DP
 import SampCert.Samplers.Gaussian.Properties
+import SampCert.Samplers.RoundedGaussian.Properties
 import Init.Data.UInt.Lemmas
 
 open SLang PMF
