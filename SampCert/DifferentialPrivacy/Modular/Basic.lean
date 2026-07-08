@@ -220,12 +220,6 @@ theorem wrappedDiscreteLaplaceVec_DP_singleton
         · simpa [nq, switchMechanism, hnil] using hpτ0 x
         · have hcons : a ++ [u] ++ b ≠ [] := by simp
           simpa [nq, switchMechanism, hnil, hcons] using hself x
-    | Update hl₁ hl₂ =>
-        rename_i a u b v
-        subst hl₁ hl₂
-        have hu : a ++ [u] ++ b ≠ [] := by simp
-        have hv : a ++ [v] ++ b ≠ [] := by simp
-        simpa [nq, switchMechanism, hu, hv] using hself x
   have hmapτ :
       pτ.map (wrapToMod m μ₂) = wrappedDiscreteLaplaceVecPMF m num ε₁ μ₁ := by
     calc
@@ -377,7 +371,8 @@ theorem wrappedDiscreteGaussianVec_zCDPBound_pointwise
           intro i
           simp))
   have hswitchBound :
-      zCDPBound nq ((((ε₁ : NNReal) / ε₂ : NNReal) : ℝ)) := by
+      zCDPBound nq
+        ((((1 / 2 : NNReal) * (((ε₁ : NNReal) / ε₂ : NNReal) ^ 2)) : NNReal) : ℝ) := by
     intro β hβ l₁ l₂ hneigh
     have hbound_nonneg :
         0 ≤ ENNReal.ofReal ((1 / 2) * (((((ε₁ : NNReal) / ε₂ : NNReal) : ℝ)) ^ 2) * β) := by
@@ -401,14 +396,6 @@ theorem wrappedDiscreteGaussianVec_zCDPBound_pointwise
           have hzero : RenyiDivergence pτ pτ β = 0 := by
             exact (RenyiDivergence_aux_zero _ _ hβ (AbsCts_refl _)).mp rfl
           simp [nq, switchMechanism, hnil, hcons, hzero, hbound_nonneg]
-    | Update hl₁ hl₂ =>
-        rename_i a u b v
-        subst hl₁ hl₂
-        have hu : a ++ [u] ++ b ≠ [] := by simp
-        have hv : a ++ [v] ++ b ≠ [] := by simp
-        have hzero : RenyiDivergence pτ pτ β = 0 := by
-          exact (RenyiDivergence_aux_zero _ _ hβ (AbsCts_refl _)).mp rfl
-        simp [nq, switchMechanism, hu, hv, hzero, hbound_nonneg]
   have hswitchAC :
       ACNeighbour nq := by
     exact switchMechanism_AC p0 pτ
@@ -431,7 +418,7 @@ theorem wrappedDiscreteGaussianVec_zCDPBound_pointwise
               rfl
   have hpost := privPostProcess_zCDPBound
     (nq := nq)
-    (ε := ((((ε₁ : NNReal) / ε₂ : NNReal) : ℝ)))
+    (ε := ((((1 / 2 : NNReal) * (((ε₁ : NNReal) / ε₂ : NNReal) ^ 2)) : NNReal) : ℝ))
     hswitchBound
     (wrapToMod m μ₂)
     hswitchAC
@@ -911,7 +898,7 @@ theorem privNoisedQueryVecMod_zCDPBound
     (m : ℕ+) (query : List T → (ι → ZMod m)) (Δ ε₁ ε₂ : ℕ+)
     (hquery : modSensitivityL2 m query Δ) :
     zCDPBound (privNoisedQueryVecMod m query Δ ε₁ ε₂)
-      ((((ε₁ : NNReal) / ε₂ : NNReal) : ℝ)) := by
+      ((((1 / 2 : NNReal) * (((ε₁ : NNReal) / ε₂ : NNReal) ^ 2)) : NNReal) : ℝ) := by
   refine privAdditiveQuery_zCDPBound
     (space := modularSpace (ι := ι) m)
     (noise := wrappedDiscreteGaussianVecPMF m)
@@ -925,7 +912,8 @@ theorem privNoisedQueryVecMod_zCDPBound
 theorem privNoisedQueryVecMod_zCDP
     (m : ℕ+) (query : List T → (ι → ZMod m)) (Δ ε₁ ε₂ : ℕ+)
     (hquery : modSensitivityL2 m query Δ) :
-    zCDP (privNoisedQueryVecMod m query Δ ε₁ ε₂) (((ε₁ : NNReal) / ε₂ : NNReal)) := by
+    zCDP (privNoisedQueryVecMod m query Δ ε₁ ε₂)
+      ((1 / 2 : NNReal) * (((ε₁ : NNReal) / ε₂ : NNReal) ^ 2)) := by
   have hzcdp := privAdditiveQuery_zCDP
     (space := modularSpace (ι := ι) m)
     (noise := wrappedDiscreteGaussianVecPMF m)
@@ -945,10 +933,11 @@ theorem privNoisedQueryVecModCorr_zCDP
     [MeasurableSpace T] [MeasurableSingletonClass T]
     (m : ℕ+) (center : List T → ℤ) (query : List T → (ι → ZMod m)) (Δ ε₁ ε₂ : ℕ+)
     (hquery : modularCorrelatedSensitivityL2 m center query Δ) :
-    zCDP (privNoisedQueryVecModCorr m center query Δ ε₁ ε₂) (((ε₁ : NNReal) / ε₂ : NNReal)) := by
+    zCDP (privNoisedQueryVecModCorr m center query Δ ε₁ ε₂)
+      ((1 / 2 : NNReal) * (((ε₁ : NNReal) / ε₂ : NNReal) ^ 2)) := by
   have hlifted :
       zCDP (privNoisedQueryVecModCorrLifted m center query Δ ε₁ ε₂)
-        (((ε₁ : NNReal) / ε₂ : NNReal)) := by
+        ((1 / 2 : NNReal) * (((ε₁ : NNReal) / ε₂ : NNReal) ^ 2)) := by
     apply privPostProcess_zCDP
     exact privNoisedQueryVecMod_zCDP
       m (correlatedModularLift m center query) Δ ε₁ ε₂

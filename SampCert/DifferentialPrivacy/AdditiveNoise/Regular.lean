@@ -459,11 +459,6 @@ lemma switchMechanism_AC
         simpa [switchMechanism] using h₁₀
       · have hcons : a ++ [()] ++ b ≠ [] := by simp
         simpa [switchMechanism, hnil, hcons] using AbsCts_refl p₁
-  | Update hl₁ hl₂ =>
-      rename_i a n b m
-      subst hl₁ hl₂
-      have hcons : a ++ [n] ++ b ≠ [] := by simp
-      simpa [switchMechanism, hcons] using AbsCts_refl p₁
 
 lemma prodPMF_renyi_bound
     (p₁ p₂ : PMF U) (q₁ q₂ : PMF V)
@@ -484,14 +479,16 @@ lemma prodPMF_renyi_bound
       privComposeAdaptive nq₁ nq₂ [] = prodPMF p₁ q₁ := by
     ext z
     rcases z with ⟨u, v⟩
-    rw [privComposeChainRule]
-    simp [nq₁, nq₂, switchMechanism, prodPMF_apply]
+    change (privComposeAdaptive nq₁ nq₂ ([] : List Unit)) (u, v) = (prodPMF p₁ q₁) (u, v)
+    rw [prodPMF_apply]
+    exact privComposeChainRule nq₁ nq₂ ([] : List Unit) u v
   have hright :
       privComposeAdaptive nq₁ nq₂ [()] = prodPMF p₂ q₂ := by
     ext z
     rcases z with ⟨u, v⟩
-    rw [privComposeChainRule]
-    simp [nq₁, nq₂, switchMechanism, prodPMF_apply]
+    change (privComposeAdaptive nq₁ nq₂ ([()] : List Unit)) (u, v) = (prodPMF p₂ q₂) (u, v)
+    rw [prodPMF_apply]
+    exact privComposeChainRule nq₁ nq₂ ([()] : List Unit) u v
   rw [hleft, hright] at hcomp
   simpa [nq₁, nq₂, switchMechanism, iSup_const] using hcomp
 
@@ -1060,7 +1057,8 @@ def privNoisedQueryVec_AC
 theorem privNoisedQueryVec_zCDP
     (query : List T → (ι → ℤ)) (Δ ε₁ ε₂ : ℕ+)
     (hquery : regularSensitivityL2 query Δ) :
-    zCDP (privNoisedQueryVec query Δ ε₁ ε₂) (((ε₁ : NNReal) / ε₂ : NNReal)) := by
+    zCDP (privNoisedQueryVec query Δ ε₁ ε₂)
+      ((1 / 2 : NNReal) * (((ε₁ : NNReal) / ε₂ : NNReal) ^ 2)) := by
   have hzcdp := privAdditiveQuery_zCDP
     (space := regularSpace (ι := ι))
     (noise := discreteGaussianVecPMF)
@@ -1077,10 +1075,11 @@ theorem privNoisedQueryVecCorr_zCDP
     [MeasurableSpace T] [MeasurableSingletonClass T]
     (center : List T → ℤ) (query : List T → (ι → ℤ)) (Δ ε₁ ε₂ : ℕ+)
     (hquery : regularCorrelatedSensitivityL2 center query Δ) :
-    zCDP (privNoisedQueryVecCorr center query Δ ε₁ ε₂) (((ε₁ : NNReal) / ε₂ : NNReal)) := by
+    zCDP (privNoisedQueryVecCorr center query Δ ε₁ ε₂)
+      ((1 / 2 : NNReal) * (((ε₁ : NNReal) / ε₂ : NNReal) ^ 2)) := by
   have hlifted :
       zCDP (privNoisedQueryVecCorrLifted center query Δ ε₁ ε₂)
-        (((ε₁ : NNReal) / ε₂ : NNReal)) := by
+        ((1 / 2 : NNReal) * (((ε₁ : NNReal) / ε₂ : NNReal) ^ 2)) := by
     apply privPostProcess_zCDP
     exact privNoisedQueryVec_zCDP
       (correlatedRegularLift center query) Δ ε₁ ε₂

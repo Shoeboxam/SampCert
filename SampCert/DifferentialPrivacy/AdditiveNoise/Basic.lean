@@ -379,7 +379,7 @@ theorem privAdditiveQuery_zCDPBound
     (query : List T → U) (Δ ε₁ ε₂ : ℕ+)
     (hquery : AdditiveNoiseSpace.SensitivityL2 (space := space) query Δ) :
     zCDPBound (privAdditiveQuery noise query Δ ε₁ ε₂)
-      ((((ε₁ : NNReal) / ε₂ : NNReal) : ℝ)) := by
+      ((((1 / 2 : NNReal) * (((ε₁ : NNReal) / ε₂ : NNReal) ^ 2)) : NNReal) : ℝ) := by
   intro α hα l₁ l₂ hneigh
   rcases hquery l₁ l₂ hneigh with ⟨τ, hτ, hadm, hdiff⟩
   simpa [privAdditiveQuery_eq] using
@@ -403,7 +403,8 @@ theorem privAdditiveQuery_zCDP
     )
     (query : List T → U) (Δ ε₁ ε₂ : ℕ+)
     (hquery : AdditiveNoiseSpace.SensitivityL2 (space := space) query Δ) :
-    zCDP (privAdditiveQuery noise query Δ ε₁ ε₂) (((ε₁ : NNReal) / ε₂ : NNReal)) := by
+    zCDP (privAdditiveQuery noise query Δ ε₁ ε₂)
+      ((1 / 2 : NNReal) * (((ε₁ : NNReal) / ε₂ : NNReal) ^ 2)) := by
   refine And.intro ?_ ?_
   · exact privAdditiveQuery_AC noise hac query Δ ε₁ ε₂
   · exact privAdditiveQuery_zCDPBound space noise hnoise query Δ ε₁ ε₂ hquery
